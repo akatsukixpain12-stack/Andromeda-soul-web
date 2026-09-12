@@ -33,8 +33,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLogout,
 }) => {
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'guest' | null>(null);
-  const [customName, setCustomName] = useState('Master Architect');
-  const [customEmail, setCustomEmail] = useState('akatsuki.x.pain12@gmail.com');
+  const [customName, setCustomName] = useState('Guest Creator');
+  const [customEmail, setCustomEmail] = useState('');
   const [customAvatar, setCustomAvatar] = useState('');
   const [authSuccessNotice, setAuthSuccessNotice] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +80,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleAutoFetchGoogleAvatar = () => {
-    const email = customEmail.trim() || 'akatsuki.x.pain12@gmail.com';
+    const email = customEmail.trim();
+    if (!email) return;
     const googleUrl = `https://unavatar.io/google/${email}`;
     setCustomAvatar(googleUrl);
     if (currentUser) {
@@ -89,40 +90,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setLoadingProvider('google');
-    try {
-      await new Promise((r) => setTimeout(r, 450));
-      const profile: UserProfile = {
-        id: `usr_google_${Date.now()}`,
-        name: customName.trim() || 'Master Architect',
-        email: customEmail.trim() || 'akatsuki.x.pain12@gmail.com',
-        avatar: customAvatar || '',
-        provider: 'google',
-        connectedAt: Date.now(),
-      };
-
-      try {
-        await fetch('/api/auth/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
-      } catch (e) {
-        console.warn('Backend sync optional:', e);
-      }
-
-      notifyUserChange(profile);
-      setAuthSuccessNotice(true);
-      setTimeout(() => {
-        setAuthSuccessNotice(false);
-        onClose();
-      }, 700);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingProvider(null);
-    }
+    window.location.href = '/api/auth/google/start';
   };
 
   const handleGuestSignIn = async () => {
@@ -131,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const profile: UserProfile = {
         id: `usr_guest_${Date.now()}`,
         name: customName.trim() || 'Guest Creator',
-        email: customEmail.trim() || 'guest@andromeda.local',
+        email: '',
         avatar: customAvatar || '',
         provider: 'guest',
         connectedAt: Date.now(),
@@ -155,25 +125,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleSignOut = async () => {
-    const guest: UserProfile = {
-      id: `guest-${Date.now()}`,
-      name: 'Guest Creator',
-      email: '',
-      avatar: '',
-      provider: 'guest',
-    };
     try {
       await fetch('/api/auth/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(guest),
+        method: 'DELETE',
       });
     } catch {
       // ignore
     }
     if (onLogout) onLogout();
-    notifyUserChange(guest);
+    if (onLoginSuccess) {
+      // clear
+    }
     onClose();
+    window.location.reload();
   };
 
   return (
@@ -345,7 +309,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <label className="block text-[11px] font-medium text-[#78716C] mb-1">Display Name</label>
                       <input
                         type="text"
-                        placeholder="Master Architect"
+                        placeholder="Guest Creator"
                         value={customName}
                         onChange={(e) => setCustomName(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-xl bg-[#FAF9F5] border border-[#E5E2D9] text-[#1C1917] focus:border-amber-600 focus:outline-none"
@@ -355,7 +319,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <label className="block text-[11px] font-medium text-[#78716C] mb-1">Google Email</label>
                       <input
                         type="email"
-                        placeholder="akatsuki.x.pain12@gmail.com"
+                        placeholder="your.email@domain.com"
                         value={customEmail}
                         onChange={(e) => setCustomEmail(e.target.value)}
                         className="w-full px-3 py-2 text-xs rounded-xl bg-[#FAF9F5] border border-[#E5E2D9] text-[#1C1917] focus:border-amber-600 focus:outline-none"

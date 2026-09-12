@@ -91,17 +91,18 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.email === 'akatsuki.x.pain12@gmail.com' || parsed.name === 'Master Architect') {
+          localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
+          return null;
+        }
+        return parsed;
+      }
     } catch {
       // fallback
     }
-    return {
-      id: 'usr-andromeda-master',
-      name: 'Master Architect',
-      email: 'akatsuki.x.pain12@gmail.com',
-      provider: 'google',
-      avatar: '',
-    };
+    return null;
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);

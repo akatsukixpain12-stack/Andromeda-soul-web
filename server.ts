@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
@@ -201,6 +202,183 @@ async function startServer() {
       hasApiKey: !!process.env.GEMINI_API_KEY,
       timestamp: Date.now(),
     });
+  });
+
+  // User Profile / Auth Endpoints
+  app.get('/api/auth/profile', (req: Request, res: Response) => {
+    res.json(db.getUserProfile());
+  });
+
+  app.post('/api/auth/profile', (req: Request, res: Response) => {
+    const updated = db.updateUserProfile(req.body);
+    res.json(updated);
+  });
+
+  app.delete('/api/auth/profile', (req: Request, res: Response) => {
+    db.updateUserProfile({ id: 'usr_guest', name: 'Guest Creator', email: '', provider: 'guest', avatar: '' });
+    res.json({ success: true });
+  });
+
+  // Google OAuth 2.0 Start
+  app.get('/api/auth/google/start', (req: Request, res: Response) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+
+    if (!clientId) {
+      return res.status(400).send(`
+        <html>
+          <body style="font-family:sans-serif; padding: 40px; text-align: center;">
+            <h2>Google OAuth Not Configured</h2>
+            <p>Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment secrets or .env file.</p>
+            <a href="/" style="color: #2563eb; text-decoration: underline;">Return to App</a>
+          </body>
+        </html>
+      `);
+    }
+
+    const state = crypto.randomBytes(32).toString('hex');
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&prompt=select_account&state=${state}`;
+    res.redirect(authUrl);
+  });
+
+  // Google OAuth 2.0 Callback
+  app.get('/api/auth/google/callback', async (req: Request, res: Response) => {
+    const { code } = req.query;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+
+    if (!code || !clientId || !clientSecret) {
+      return res.redirect('/?auth_error=missing_credentials');
+    }
+
+    try {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: String(code),
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error('Failed to exchange authorization code with Google');
+      }
+
+      const tokenData = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!userRes.ok) {
+        throw new Error('Failed to fetch user profile from Google');
+      }
+
+      const googleUser = await userRes.json();
+      const userProfile = {
+        id: `usr_google_${googleUser.sub || Date.now()}`,
+        name: googleUser.name || 'Google User',
+        email: googleUser.email || '',
+        avatar: googleUser.picture || '',
+        provider: 'google' as const,
+        connectedAt: Date.now(),
+      };
+
+      db.updateUserProfile(userProfile);
+      res.redirect('/?auth_success=true');
+    } catch (err: any) {
+      console.error('Google OAuth callback error:', err);
+      res.redirect('/?auth_error=' + encodeURIComponent(err.message));
+    }
+  });
+
+  // GitHub OAuth Start
+  app.get('/api/auth/github/start', (req: Request, res: Response) => {
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`;
+
+    if (!clientId) {
+      return res.status(400).send(`
+        <html>
+          <body style="font-family:sans-serif; padding: 40px; text-align: center;">
+            <h2>GitHub OAuth Not Configured</h2>
+            <p>Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in your environment secrets or .env file.</p>
+            <a href="/" style="color: #2563eb; text-decoration: underline;">Return to App</a>
+          </body>
+        </html>
+      `);
+    }
+
+    const state = crypto.randomBytes(32).toString('hex');
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+    res.redirect(authUrl);
+  });
+
+  // GitHub OAuth Callback
+  app.get('/api/auth/github/callback', async (req: Request, res: Response) => {
+    const { code } = req.query;
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    const redirectUri = process.env.GITHUB_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/github/callback`;
+
+    if (!code || !clientId || !clientSecret) {
+      return res.redirect('/?github_error=missing_credentials');
+    }
+
+    try {
+      const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: String(code),
+          redirect_uri: redirectUri,
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error('Failed to exchange code with GitHub');
+      }
+
+      const tokenData = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+      if (!accessToken) {
+        throw new Error('No access token returned from GitHub');
+      }
+
+      const userRes = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'User-Agent': 'Andromeda-Sovereign-Studio',
+        },
+      });
+
+      if (!userRes.ok) {
+        throw new Error('Failed to fetch GitHub user profile');
+      }
+
+      const gitUser = await userRes.json();
+
+      db.updateDiscordConfig({
+        githubToken: accessToken,
+        githubRepo: gitUser.login ? `${gitUser.login}/workspace` : '',
+      });
+
+      res.redirect('/?github_success=true&username=' + encodeURIComponent(gitUser.login));
+    } catch (err: any) {
+      console.error('GitHub OAuth error:', err);
+      res.redirect('/?github_error=' + encodeURIComponent(err.message));
+    }
   });
 
   // Available Gemini Models

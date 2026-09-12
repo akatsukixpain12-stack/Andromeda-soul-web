@@ -620,15 +620,9 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
     }
   }
 
-  // 3. High quality built-in assistance simulation
-  const simulatedResponse = generateThoughtfulResponse(prompt, modelMeta.name, settings.userName || 'User', effectiveThinking);
-
-  // If thinking is enabled, stream the thought first
-  if (effectiveThinking && onThought) {
-    onThought(`Analyzing query: "${prompt}"\n- Identifying core concepts and user intent\n- Evaluating constraints, edge cases, and code structure\n- Formatting clean markdown output with verified syntax`);
-  }
-
-  return streamTextSimulation(simulatedResponse, onToken, signal);
+  // 3. Clear actionable error instead of generic echo fallback
+  const errMsg = `⚠️ **Provider Connection Error**\n\nUnable to reach backend API or provider for **${modelMeta.name}** (${modelMeta.provider}). Please ensure your backend server is running, check your API keys in **Settings > Providers & Keys**, or select **Google Gemini 2.5 Flash** for instant cloud chat.`;
+  return streamTextSimulation(errMsg, onToken, signal);
 }
 
 /**
@@ -651,19 +645,6 @@ async function streamTextSimulation(
   }
 
   return accumulated;
-}
-
-/**
- * Generates structured conversational answers
- */
-function generateThoughtfulResponse(prompt: string, modelName: string, userName: string, thinking: boolean): string {
-  const lower = prompt.toLowerCase();
-
-  if (lower.includes('code') || lower.includes('python') || lower.includes('javascript') || lower.includes('typescript')) {
-    return `### ⚡ Implementation Overview\n\nHere is a clean, modern implementation for your request using modern best practices:\n\n\`\`\`typescript\n// Safe and structured utility function\nexport interface ApiResponse<T> {\n  data: T;\n  status: 'success' | 'error';\n  timestamp: number;\n}\n\nexport async function fetchData<T>(url: string): Promise<ApiResponse<T>> {\n  try {\n    const response = await fetch(url);\n    if (!response.ok) throw new Error(\`HTTP \${response.status}\`);\n    const data: T = await response.json();\n    return { data, status: 'success', timestamp: Date.now() };\n  } catch (error) {\n    console.error('Fetch error:', error);\n    throw error;\n  }\n}\n\`\`\`\n\n### Key Highlights\n- **Type Safety**: Strictly typed with TypeScript generics.\n- **Error Resilience**: Catches network interruptions gracefully.\n- **Universal Compatibility**: Works in modern Node.js, browsers, and edge environments.`;
-  }
-
-  return `### Hello ${userName},\n\nI am running via **${modelName}**.\n\nYou asked:\n> "${prompt}"\n\nThis smooth white workspace supports:\n1. **Google Gemini API**: Free tier multimodal models with high-speed token generation.\n2. **Anthropic Claude 3.7**: Nuanced reasoning with extended thinking trace.\n3. **Local Ollama**: 100% free and private local AI running on \`http://localhost:11434\` (DeepSeek-R1, Llama 3.2, Mistral).\n4. **LM Studio**: Standard local inference on \`http://localhost:1234/v1\`.\n\nHow would you like to proceed or what shall we build together next?`;
 }
 
 /**
