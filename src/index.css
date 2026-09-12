@@ -1,0 +1,94 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@layer base {
+  :root {
+    --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: #FAF9F5;
+    color: #1C1917;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: var(--font-display);
+  }
+
+  pre, code, .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Claude warm white card */
+.claude-card {
+  background-color: #FFFFFF;
+  border: 1px solid #EAE8E2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.claude-input-pill {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E0D8;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.claude-input-pill:focus-within {
+  border-color: #D97706;
+  box-shadow: 0 4px 24px -2px rgba(217, 119, 6, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* Thinking accordion styling */
+.thought-container {
+  background: #F7F6F1;
+  border-left: 3px solid #D97706;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* Subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 113, 108, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 113, 108, 0.4);
+}
+
+/* Code block highlight */
+.prose pre {
+  background-color: #18181B !important;
+  color: #F4F4F5 !important;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+}
+
+/* Blink cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 0.9s infinite;
+}
