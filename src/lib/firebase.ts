@@ -70,20 +70,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
 }
-
-// Validate connection to Firestore on initialization
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
-    }
-  }
-}
-testConnection();
 
 /**
  * Helper to recursively sanitize objects and eliminate any undefined values, transforming them to null or deleting them.
@@ -110,9 +97,19 @@ function cleanUndefined(obj: any): any {
 // Cloud Firestore Persistence Helpers
 
 /**
+ * Checks if the current Firebase user matches the target userId
+ */
+export function isUserAuthenticated(userId: string): boolean {
+  return !!(auth.currentUser && auth.currentUser.uid === userId);
+}
+
+/**
  * Saves/updates user profile document
  */
 export async function dbSaveUserProfile(userId: string, profile: UserProfile) {
+  if (!isUserAuthenticated(userId)) {
+    return;
+  }
   const path = `users/${userId}`;
   try {
     const cleanedProfile = cleanUndefined({
@@ -121,6 +118,7 @@ export async function dbSaveUserProfile(userId: string, profile: UserProfile) {
     });
     await setDoc(doc(db, 'users', userId), cleanedProfile, { merge: true });
   } catch (error) {
+    console.warn('Firestore UserProfile write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
@@ -129,11 +127,15 @@ export async function dbSaveUserProfile(userId: string, profile: UserProfile) {
  * Saves settings to user document
  */
 export async function dbSaveUserSettings(userId: string, settings: UserSettings) {
+  if (!isUserAuthenticated(userId)) {
+    return;
+  }
   const path = `users/${userId}`;
   try {
     const cleanedSettings = cleanUndefined(settings);
     await setDoc(doc(db, 'users', userId), { settings: cleanedSettings }, { merge: true });
   } catch (error) {
+    console.warn('Firestore UserSettings write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
@@ -142,6 +144,9 @@ export async function dbSaveUserSettings(userId: string, settings: UserSettings)
  * Subscribes to real-time conversations of a user
  */
 export function dbSubscribeConversations(userId: string, onUpdate: (conversations: Conversation[]) => void) {
+  if (!isUserAuthenticated(userId)) {
+    return () => {};
+  }
   const path = `users/${userId}/conversations`;
   try {
     const q = query(collection(db, 'users', userId, 'conversations'), orderBy('updatedAt', 'desc'));
@@ -163,10 +168,13 @@ export function dbSubscribeConversations(userId: string, onUpdate: (conversation
       });
       onUpdate(list);
     }, (error) => {
+      console.warn('Firestore conversations snapshot error:', error);
       handleFirestoreError(error, OperationType.GET, path);
     });
   } catch (error) {
+    console.warn('Firestore subscribe error:', error);
     handleFirestoreError(error, OperationType.GET, path);
+    return () => {};
   }
 }
 
@@ -174,6 +182,9 @@ export function dbSubscribeConversations(userId: string, onUpdate: (conversation
  * Saves/creates a conversation document
  */
 export async function dbSaveConversation(userId: string, conversation: Conversation) {
+  if (!isUserAuthenticated(userId)) {
+    return;
+  }
   const path = `users/${userId}/conversations/${conversation.id}`;
   try {
     // We save metadata and inline messages
@@ -189,6 +200,7 @@ export async function dbSaveConversation(userId: string, conversation: Conversat
     });
     await setDoc(doc(db, 'users', userId, 'conversations', conversation.id), payload, { merge: true });
   } catch (error) {
+    console.warn('Firestore conversation write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
@@ -197,10 +209,14 @@ export async function dbSaveConversation(userId: string, conversation: Conversat
  * Deletes a conversation document
  */
 export async function dbDeleteConversation(userId: string, conversationId: string) {
+  if (!isUserAuthenticated(userId)) {
+    return;
+  }
   const path = `users/${userId}/conversations/${conversationId}`;
   try {
     await deleteDoc(doc(db, 'users', userId, 'conversations', conversationId));
   } catch (error) {
+    console.warn('Firestore conversation delete error:', error);
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

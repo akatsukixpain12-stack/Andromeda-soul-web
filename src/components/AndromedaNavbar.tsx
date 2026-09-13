@@ -171,21 +171,21 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           <button
             id="model-selector-pill"
             onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F9F8F5] border border-[#E2E0D8] text-[#1C1917] shadow-xs transition-all cursor-pointer hover:border-[#D0CDC4]"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F9F8F5] border border-[#E2E0D8] text-[#1C1917] shadow-xs transition-all cursor-pointer hover:border-[#D0CDC4] max-w-[150px] sm:max-w-none"
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
               {getProviderIcon(currentModel.provider)}
-              <span className="text-sm font-medium text-[#1C1917] whitespace-nowrap">{currentModel.name}</span>
+              <span className="text-xs sm:text-sm font-medium text-[#1C1917] truncate max-w-[75px] sm:max-w-none">{currentModel.name}</span>
             </div>
 
             {currentModel.badge && (
-              <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+              <span className="hidden sm:inline-block text-[11px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                 {currentModel.badge}
               </span>
             )}
 
             <ChevronDown
-              className={`w-3.5 h-3.5 text-[#78716C] transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 text-[#78716C] transition-transform duration-200 shrink-0 ${
                 isModelDropdownOpen ? 'rotate-180' : ''
               }`}
             />
@@ -193,8 +193,8 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
 
           {/* Dropdown Menu */}
           {isModelDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-88 sm:w-104 rounded-2xl bg-white border border-[#E5E3DB] shadow-2xl p-2 z-50 animate-in fade-in duration-150">
-              <div className="px-3 py-2 border-b border-[#F0EEE6] flex items-center justify-between">
+            <div className="fixed inset-x-2 top-14 sm:inset-x-auto sm:top-auto sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:mt-2 w-auto sm:w-104 max-h-[80dvh] rounded-2xl bg-white border border-[#E5E3DB] shadow-2xl p-2 z-50 animate-in fade-in duration-150 flex flex-col">
+              <div className="px-3 py-2 border-b border-[#F0EEE6] flex items-center justify-between shrink-0">
                 <span className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Select AI Model</span>
                 <button
                   onClick={() => {
@@ -208,7 +208,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
                 </button>
               </div>
 
-              <div className="max-h-96 overflow-y-auto divide-y divide-[#F5F3ED] py-1">
+              <div className="max-h-[55dvh] sm:max-h-96 overflow-y-auto divide-y divide-[#F5F3ED] py-1">
                 {modelGroups.map((group) => {
                   const groupModels = allModels.filter(group.filter);
                   if (groupModels.length === 0) return null;

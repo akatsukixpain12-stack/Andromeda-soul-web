@@ -186,16 +186,16 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
           )}
         </div>
 
-        {/* Action icons on hover */}
+        {/* Action icons */}
         {!isEditing && (
-          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 pl-1 transition-opacity">
+          <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-1 pl-1 transition-opacity">
             <button
               id={`pin-chat-${conv.id}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onTogglePinConversation(conv.id);
               }}
-              className={`p-1 rounded-md hover:bg-[#EAE7DE] text-[#78716C] transition-colors cursor-pointer ${
+              className={`p-1.5 md:p-1 rounded-md hover:bg-[#EAE7DE] text-[#78716C] transition-colors cursor-pointer ${
                 conv.pinned ? 'text-[#D97706]' : ''
               }`}
               title={conv.pinned ? 'Unpin' : 'Pin conversation'}
@@ -205,7 +205,7 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
             <button
               id={`rename-chat-${conv.id}`}
               onClick={(e) => handleStartRename(conv, e)}
-              className="p-1 rounded-md hover:bg-[#EAE7DE] text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
+              className="p-1.5 md:p-1 rounded-md hover:bg-[#EAE7DE] text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
               title="Rename"
             >
               <Edit2 className="w-3.5 h-3.5" />
@@ -216,7 +216,7 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
                 e.stopPropagation();
                 onDeleteConversation(conv.id);
               }}
-              className="p-1 rounded-md hover:bg-rose-50 text-[#78716C] hover:text-rose-600 transition-colors cursor-pointer"
+              className="p-1.5 md:p-1 rounded-md hover:bg-rose-50 text-[#78716C] hover:text-rose-600 transition-colors cursor-pointer"
               title="Delete"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -233,13 +233,13 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
       {isOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-2xs md:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-2xs md:hidden"
         />
       )}
 
       <aside
         id="andromeda-sidebar"
-        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 bg-[#FBFBFA] border-r border-[#EAE8E2] flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed md:sticky top-0 left-0 z-40 h-[100dvh] w-72 max-w-[85vw] bg-[#FBFBFA] border-r border-[#EAE8E2] flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:pointer-events-none'
         }`}
       >
@@ -279,7 +279,10 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
           {/* Quantum Utility Tools Row */}
           <div className="grid grid-cols-3 gap-1">
             <button
-              onClick={() => onOpenMediaEngine?.()}
+              onClick={() => {
+                onOpenMediaEngine?.();
+                if (window.innerWidth < 768) onCloseMobile();
+              }}
               className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
               title="Creative Picture & Video Studio"
             >
@@ -287,7 +290,10 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
               <span>Media</span>
             </button>
             <button
-              onClick={() => onOpenTerminal?.()}
+              onClick={() => {
+                onOpenTerminal?.();
+                if (window.innerWidth < 768) onCloseMobile();
+              }}
               className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
               title="Built-in Bash Shell Terminal"
             >
@@ -295,7 +301,10 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
               <span>Shell</span>
             </button>
             <button
-              onClick={() => onOpenDiscord?.()}
+              onClick={() => {
+                onOpenDiscord?.();
+                if (window.innerWidth < 768) onCloseMobile();
+              }}
               className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 text-[#5865F2] hover:border-[#5865F2]/50 transition-all cursor-pointer truncate"
               title="Discord Bot & Autonomous Code Gateway (/discord)"
             >

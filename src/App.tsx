@@ -104,12 +104,7 @@ export function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.email === 'akatsuki.x.pain12@gmail.com' || parsed.name === 'Master Architect') {
-          localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
-          return null;
-        }
-        return parsed;
+        return JSON.parse(saved);
       }
     } catch {
       // fallback
@@ -117,6 +112,7 @@ export function App() {
     return null;
   });
 
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Load conversations
@@ -137,7 +133,12 @@ export function App() {
     settings.defaultModelId || 'andromeda-soul-1'
   );
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [isProvidersModalOpen, setIsProvidersModalOpen] = useState(false);
   const [isMediaEngineOpen, setIsMediaEngineOpen] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -181,6 +182,7 @@ export function App() {
   // Firebase Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthReady(true);
       if (user) {
         const profile: UserProfile = {
           id: user.uid,
@@ -192,6 +194,9 @@ export function App() {
         };
         setCurrentUser(profile);
         dbSaveUserProfile(user.uid, profile);
+      } else {
+        // If not authenticated in Firebase and currentUser was previously marked google, reset to null
+        setCurrentUser((prev) => (prev?.provider === 'google' ? null : prev));
       }
     });
     return () => unsubscribe();
@@ -199,7 +204,9 @@ export function App() {
 
   // Firebase Firestore real-time sync for Conversations list
   useEffect(() => {
-    if (!currentUser || currentUser.provider === 'guest') return;
+    if (!isAuthReady || !currentUser || currentUser.provider === 'guest' || !auth.currentUser || auth.currentUser.uid !== currentUser.id) {
+      return;
+    }
 
     const unsubscribe = dbSubscribeConversations(currentUser.id, (list) => {
       if (list.length === 0) {
@@ -211,15 +218,17 @@ export function App() {
         }
       }
     });
-    return () => unsubscribe();
-  }, [currentUser]);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser, isAuthReady]);
 
   // Sync settings to Firestore
   useEffect(() => {
-    if (currentUser && currentUser.provider !== 'guest') {
+    if (isAuthReady && currentUser && currentUser.provider !== 'guest' && auth.currentUser && auth.currentUser.uid === currentUser.id) {
       dbSaveUserSettings(currentUser.id, settings);
     }
-  }, [settings, currentUser]);
+  }, [settings, currentUser, isAuthReady]);
 
   // Real OAuth synchronization & URL callback listener
   useEffect(() => {
@@ -228,9 +237,11 @@ export function App() {
         const res = await fetch('/api/auth/profile');
         if (res.ok) {
           const profile = await res.json();
-          // If the server has a real signed-in user (not guest, or updated guest), sync it
-          if (profile && profile.id) {
-            setCurrentUser(profile);
+          // If server profile is guest or custom profile, only set if no active Firebase user
+          if (profile && profile.id && !auth.currentUser) {
+            if (profile.provider === 'guest') {
+              setCurrentUser(profile);
+            }
           }
         }
       } catch (err) {
