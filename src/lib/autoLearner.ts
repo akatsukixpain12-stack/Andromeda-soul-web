@@ -85,11 +85,11 @@ export async function autoLearnFromConversationTurn({
     topic,
     insight,
     category,
-    source: 'auto-learned',
+    source: 'conversation_learning',
     userId,
     userEmail: userEmail || 'cloud-creator@andromeda.ai',
     createdAt: Date.now(),
-    tags: ['auto-learned', 'google-cloud-sync', category],
+    tags: ['conversation-learning', 'google-cloud-sync', category],
   };
 
   // 1. Direct Cloud Firestore commit

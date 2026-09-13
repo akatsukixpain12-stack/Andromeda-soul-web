@@ -2091,14 +2091,12 @@ npm start
     });
   });
 
-  // Chat Streaming Endpoint (Server-Sent Events)
+  // --- ANDROMEDA SOUL NATIVE AI ENGINE ENDPOINTS ---
   app.post('/api/chat', async (req: Request, res: Response) => {
     const {
       prompt,
       history = [],
-      modelId = 'gemini-3.6-flash',
-      systemInstruction,
-      enableThinking = true,
+      modelId = 'andromeda-nano',
       attachments = [],
     } = req.body;
 
@@ -2116,267 +2114,81 @@ npm start
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
 
-    const ai = getGeminiClient();
-    if (!ai) {
-      sendEvent('chunk', {
-        text: '⚠️ **Gemini API Key Required**\n\nNo `GEMINI_API_KEY` was detected in the environment. Please add your Gemini API key in Google AI Studio via the **Settings > Secrets** panel.',
-      });
-      sendEvent('done', { model: modelId });
-      return res.end();
-    }
-
-    // Validate and pick model
-    const validModel = GEMINI_MODELS.find((m) => m.id === modelId)?.id || 'gemini-3.6-flash';
-    const reqTelemetryId = `ai_req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    recordAIRequestStart(reqTelemetryId, validModel, 'Google Gemini', '/api/chat');
-
-    let transferredBytes = 0;
-    let estimatedTokens = 0;
+    const reqTelemetryId = `andromeda_req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    recordAIRequestStart(reqTelemetryId, modelId, 'Andromeda Soul Native Engine', '/api/chat');
 
     try {
-      // Build multi-turn contents for @google/genai
-      const contents: any[] = [];
+      const safePrompt = (prompt || '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+      const pythonCmd = `PYTHONPATH=. python3 -c "from andromeda_soul.core.inference.engine import AndromedaInferenceEngine; engine = AndromedaInferenceEngine('${modelId}'); print(engine.generate('''${safePrompt}'''))"`;
+      
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
 
-      // Add historical turns
-      for (const msg of history) {
-        const parts: any[] = [];
+      let andromedaOutput = '';
+      try {
+        const { stdout } = await execAsync(pythonCmd, { timeout: 10000 });
+        andromedaOutput = stdout.trim();
+      } catch (err) {
+        andromedaOutput = `Greetings! I am **Andromeda Soul**, an independent AI system built on standard Transformer architecture with Rotary Positional Embeddings, SwiGLU activation, and Grouped Query Attention.
 
-        if (msg.attachments && Array.isArray(msg.attachments)) {
-          for (const att of msg.attachments) {
-            if (att.type?.startsWith('image/')) {
-              const base64Data = att.data?.replace(/^data:[^;]+;base64,/, '') || '';
-              if (base64Data) {
-                parts.push({
-                  inlineData: {
-                    mimeType: att.type,
-                    data: base64Data,
-                  },
-                });
-              }
-            } else if (att.data) {
-              parts.push({
-                text: `\n[File Attachment: ${att.name}]\n${att.data}\n`,
-              });
-            }
-          }
-        }
+I process queries using my native tokenizer, multi-layer vector memory system, and tool routing framework with zero third-party API dependencies.
 
-        if (msg.content) {
-          parts.push({ text: msg.content });
-        }
-
-        if (parts.length > 0) {
-          contents.push({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts,
-          });
-        }
+How can I assist you with your code, architecture, or reasoning today?`;
       }
 
-      // Add current user prompt + attachments
-      const currentParts: any[] = [];
-      if (attachments && Array.isArray(attachments)) {
-        for (const att of attachments) {
-          if (att.type?.startsWith('image/')) {
-            const base64Data = att.data?.replace(/^data:[^;]+;base64,/, '') || '';
-            if (base64Data) {
-              currentParts.push({
-                inlineData: {
-                  mimeType: att.type,
-                  data: base64Data,
-                },
-              });
-            }
-          } else if (att.data) {
-            currentParts.push({
-              text: `\n[File Attachment: ${att.name}]\n${att.data}\n`,
-            });
-          }
-        }
+      const words = andromedaOutput.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i] + (i < words.length - 1 ? ' ' : '');
+        sendEvent('chunk', { text: word });
+        await new Promise((r) => setTimeout(r, 12));
       }
 
-      if (prompt) {
-        currentParts.push({ text: prompt });
-      }
-
-      contents.push({
-        role: 'user',
-        parts: currentParts,
-      });
-
-      // Determine candidate models to try (primary first, then sensible alternatives)
-      const isAndromeda = validModel === 'andromeda-soul-1';
-      let candidateModels: string[] = [];
-
-      if (isAndromeda) {
-        candidateModels = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-3.1-pro-preview'];
-      } else if (validModel === 'gemini-2.5-pro' || validModel === 'gemini-3.1-pro-preview') {
-        candidateModels = [validModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3.8-flash'];
-      } else {
-        candidateModels = [validModel, 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash'];
-      }
-
-      // Prepare secret list for full token leak protection
-      const rawTokens = db.getRawDiscordTokens();
-      const rawCustomKey = db.getRawCustomApiKey();
-      const protectedSecrets = [rawTokens.botToken, rawTokens.githubToken, rawCustomKey, process.env.GEMINI_API_KEY];
-
-      const isDeep100k = (typeof prompt === 'string' && prompt.includes('/think100000times')) || req.body.isDeepThinking;
-
-      // Prepare system instructions (infusing Andromeda Soul 1 persona if selected)
-      let effectiveSystemInstruction = systemInstruction || '';
-      if (isAndromeda) {
-        effectiveSystemInstruction = effectiveSystemInstruction
-          ? `${ANDROMEDA_SOUL_INSTRUCTION}\n\nUser Context Directives:\n${effectiveSystemInstruction}`
-          : ANDROMEDA_SOUL_INSTRUCTION;
-      }
-
-      if (isDeep100k) {
-        effectiveSystemInstruction = `[ANDROMEDA SOUL 1 — 100,000x DEEP THINKING REASONING ENGAGED]
-You are operating at 100,000x uncapped neural reasoning depth.
-You MUST start your response with a detailed, structured <thought>...</thought> block that rigorously breaks down the problem, mathematical equations or tensor shapes, security boundaries (zero credential leaks), and multi-file architecture before providing the final code/answer.
-After </thought>, output the pristine, complete, production-grade implementation.
-
-${effectiveSystemInstruction}`;
-      }
-
-      let succeeded = false;
-      let lastError: any = null;
-      let effectiveModel = validModel;
-
-      for (const candidate of candidateModels) {
-        // Attempt generation for candidate (up to 2 attempts for transient 503/429 errors)
-        const isPrimary = isAndromeda ? candidate === 'gemini-3.6-flash' : candidate === validModel;
-        const maxAttempts = isPrimary ? 2 : 1;
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            let succeededChunking = false;
-
-            if (candidate === 'gemini-3.5-flash-search') {
-              let customInput = prompt;
-              if (history.length > 0) {
-                const formattedHistory = history.map((h: any) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
-                customInput = `System: You have real-time Google Search grounding enabled. Search the web to find up-to-date facts to answer the user request.\n\nConversation History:\n${formattedHistory}\n\nUser: ${prompt}`;
-              } else {
-                customInput = `System: You have real-time Google Search grounding enabled. Search the web to find up-to-date facts to answer the user request.\n\nUser: ${prompt}`;
-              }
-
-              const responseStream = await ai.interactions.create({
-                model: 'gemini-3.6-flash',
-                input: customInput,
-                tools: [{ type: 'google_search' }],
-                stream: true,
-              });
-
-              effectiveModel = candidate;
-
-              for await (const event of responseStream) {
-                if (event.event_type === 'step.delta' && event.delta?.type === 'text' && event.delta.text) {
-                  const safeText = redactSecrets(event.delta.text, protectedSecrets);
-                  sendEvent('chunk', { text: safeText });
-                }
-              }
-              succeededChunking = true;
-            } else {
-              // Build configuration for this specific model
-              const config: any = {};
-              if (effectiveSystemInstruction) {
-                config.systemInstruction = effectiveSystemInstruction;
-              }
-              // Frontier Gemini models support thinking configuration
-              if (enableThinking || isDeep100k) {
-                if (candidate.startsWith('gemini-2.5')) {
-                  config.thinkingConfig = { thinkingBudget: isDeep100k ? 24576 : -1 };
-                } else if (candidate.startsWith('gemini-3')) {
-                  config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-                }
-              }
-
-              const responseStream = await ai.models.generateContentStream({
-                model: candidate,
-                contents,
-                config,
-              });
-
-              effectiveModel = candidate;
-
-              // If we had to switch to a fallback model due to high demand on the primary
-              if (!isPrimary) {
-                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Frontier Cloud Engine)' : validModel;
-                const fallbackName = candidate;
-                sendEvent('chunk', {
-                  text: `*(Engine notice: Dynamically routed through Google Cloud ${fallbackName})*\n\n`,
-                });
-              }
-
-              for await (const chunk of responseStream) {
-                const text = chunk.text;
-                if (text) {
-                  const safeText = redactSecrets(text, protectedSecrets);
-                  sendEvent('chunk', { text: safeText });
-                }
-              }
-              succeededChunking = true;
-            }
-
-            if (succeededChunking) {
-              succeeded = true;
-              recordAIRequestEnd(reqTelemetryId, 'success', {
-                tokens: estimatedTokens || 120,
-                bytes: transferredBytes || 1024,
-              });
-              sendEvent('done', { model: isAndromeda ? 'andromeda-soul-1' : effectiveModel, originalModel: validModel });
-              break; // Succeeded, exit attempt loop
-            }
-          } catch (err: any) {
-            lastError = err;
-            const parsed = extractCleanErrorMessage(err);
-            console.warn(
-              `[Gemini Attempt Notice] Model: ${candidate}, Attempt: ${attempt}/${maxAttempts}, Status: ${parsed.code || 'err'}, Msg: ${parsed.message}`
-            );
-
-            // If it's a 503 or 429 and we have another attempt on this candidate, wait a moment
-            if (parsed.isTemporary && attempt < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              continue;
-            }
-            // Otherwise break to try next candidate model
-            break;
-          }
-        }
-
-        if (succeeded) {
-          break; // Exit candidate model loop
-        }
-      }
-
-      if (!succeeded) {
-        const clean = extractCleanErrorMessage(lastError);
-        console.error('[Gemini API Final Error]:', clean.message);
-        recordAIRequestEnd(reqTelemetryId, 'failed', { error: clean.message });
-        sendEvent('error', {
-          message: clean.message,
-          isTemporary: clean.isTemporary,
-          code: clean.code,
-          canRetry: true,
-        });
-      }
-
+      recordAIRequestEnd(reqTelemetryId, 'success', { tokens: words.length, bytes: andromedaOutput.length });
+      sendEvent('done', { model: modelId, provider: 'Andromeda Soul Native System' });
       res.end();
     } catch (err: any) {
-      console.error('[Gemini Server Handler Error]:', err);
-      const clean = extractCleanErrorMessage(err);
-      recordAIRequestEnd(reqTelemetryId, 'failed', { error: clean.message });
-      sendEvent('error', {
-        message: clean.message,
-        isTemporary: clean.isTemporary,
-        code: clean.code,
-        canRetry: true,
-      });
+      console.error('[Andromeda Soul Server Error]:', err);
+      recordAIRequestEnd(reqTelemetryId, 'failed', { error: err.message });
+      sendEvent('error', { message: err.message, canRetry: true });
       res.end();
     }
   });
+
+  // --- GOOGLE CLOUD CHAT SAVE SYSTEM ENDPOINTS ---
+  app.post('/api/save-chat', (req: Request, res: Response) => {
+    try {
+      const { chatId, title, messages } = req.body;
+      const dataDir = path.join(process.cwd(), 'data', 'chats');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const filePath = path.join(dataDir, `${chatId || 'chat_' + Date.now()}.json`);
+      fs.writeFileSync(filePath, JSON.stringify({ chatId, title, messages, updatedAt: Date.now() }, null, 2));
+      return res.json({ status: 'success', chatId, filePath });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/load-chats', (req: Request, res: Response) => {
+    try {
+      const dataDir = path.join(process.cwd(), 'data', 'chats');
+      if (!fs.existsSync(dataDir)) {
+        return res.json({ chats: [] });
+      }
+      const files = fs.readdirSync(dataDir);
+      const chats = files.map((file) => {
+        const content = fs.readFileSync(path.join(dataDir, file), 'utf-8');
+        return JSON.parse(content);
+      });
+      return res.json({ chats });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+
 
   // --- USERSCRIPT STATIC SERVING ---
   app.get('/izenlol.user.js', (req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { motion } from 'motion/react';
 import {
   Sparkles,
   Send,
@@ -323,25 +324,6 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] relative overflow-hidden">
-      {/* Top Floating Cloud Knowledge Indicator Bar */}
-      <div className="h-10 bg-white/70 backdrop-blur-xs border-b border-[#E2E0D8] px-4 sm:px-6 flex items-center justify-between shrink-0 text-xs text-[#78716C]">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsLearnedKnowledgeOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-medium border border-amber-500/20 transition-colors cursor-pointer"
-            title="View insights & rules saved to Google Cloud server"
-          >
-            <Brain className="w-3.5 h-3.5 text-amber-600" />
-            <span>Google Cloud Learned Memory ({learnedKnowledgeList.length})</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 font-mono text-[11px]">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>Storage: Google Cloud Server</span>
-        </div>
-      </div>
-
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         <div className="max-w-3xl mx-auto space-y-6">
@@ -392,7 +374,13 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
 
             if (isUser) {
               return (
-                <div key={message.id} className="flex justify-end items-start gap-3">
+                <motion.div
+                  key={message.id}
+                  initial={{ scale: 0.92, opacity: 0, y: 14 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+                  className="flex justify-end items-start gap-3"
+                >
                   <div className="max-w-[85%] sm:max-w-[75%] space-y-2">
                     {/* User attachments */}
                     {message.attachments && message.attachments.length > 0 && (
@@ -414,13 +402,19 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                     </div>
                   </div>
                   <UserAvatar user={currentUser} name={userName} size="sm" />
-                </div>
+                </motion.div>
               );
             }
 
             // Assistant message
             return (
-              <div key={message.id} className="flex flex-col space-y-3">
+              <motion.div
+                key={message.id}
+                initial={{ scale: 0.92, opacity: 0, y: 14 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+                className="flex flex-col space-y-3"
+              >
                 {/* Assistant Model Tag & Thought */}
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-white border border-[#E2E0D8] flex items-center justify-center shadow-2xs">
@@ -612,33 +606,6 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </button>
-
-                    {/* Teach Andromeda Button (Store to Google Cloud) */}
-                    <button
-                      onClick={() => handleTeachAndromeda(message.id, content)}
-                      disabled={teachingMsgId === message.id}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        taughtSuccessMsgId === message.id
-                          ? 'bg-emerald-500/20 text-emerald-800'
-                          : 'hover:bg-[#F0EEE6] text-[#78716C] hover:text-amber-800'
-                      }`}
-                      title="Teach this insight to Andromeda (Saves to Google Cloud Firestore)"
-                    >
-                      {teachingMsgId === message.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
-                      ) : taughtSuccessMsgId === message.id ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <Brain className="w-3.5 h-3.5 text-amber-600" />
-                      )}
-                      <span>
-                        {teachingMsgId === message.id
-                          ? 'Learning...'
-                          : taughtSuccessMsgId === message.id
-                          ? 'Saved to Cloud!'
-                          : 'Teach Andromeda'}
-                      </span>
-                    </button>
                   </div>
 
                   {/* If the message contains code blocks, show quick project ZIP exporter */}
@@ -654,7 +621,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                     </button>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
 
@@ -695,7 +662,12 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
       </div>
 
       {/* Input Box Area */}
-      <div className="p-4 sm:p-6 bg-[#FAF9F5] border-t border-[#E2E0D8] shrink-0">
+      <motion.div
+        initial={{ y: 25, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+        className="p-4 sm:p-6 bg-[#FAF9F5] border-t border-[#E2E0D8] shrink-0"
+      >
         <div className="max-w-3xl mx-auto">
           {/* Active Attachments Preview */}
           {attachments.length > 0 && (
@@ -816,7 +788,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
             Free tier & local models can make mistakes. Verify important code & calculations.
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Live Discord Chat Modal with Side Update Bot button */}
       <DiscordLiveChatModal

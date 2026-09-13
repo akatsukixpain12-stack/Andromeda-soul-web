@@ -1,6 +1,6 @@
 {
-  "name": "Andromeda",
-  "description": "Andromeda Sovereign AI Studio with Google Auth, uncapped reasoning depth, multi-model intelligence (Gemini, Claude, Ollama, LM Studio), and smooth white workspace.",
+  "name": "Andromeda Soul",
+  "description": "An intelligence with a soul. Independent AI model architecture, native autoregressive transformer, custom tokenizer, training pipeline, and Andromeda Vision image generation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
