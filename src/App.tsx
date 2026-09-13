@@ -19,10 +19,10 @@ import {
   dbSaveUserProfile,
   dbSaveUserSettings
 } from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { inMemoryPersistence, onAuthStateChanged, setPersistence, signOut } from 'firebase/auth';
 
-const STORAGE_KEY_CONVERSATIONS = 'andromeda_guest_conversations_v4';
-const STORAGE_KEY_SETTINGS = 'andromeda_settings_v4';
+const STORAGE_KEY_CONVERSATIONS = 'andromeda_session_conversations_v5';
+const STORAGE_KEY_SETTINGS = 'andromeda_session_settings_v5';
 const STORAGE_KEY_USER_PROFILE = 'andromeda_user_profile_v4';
 
 const createDefaultConversation = (): Conversation => ({
@@ -37,7 +37,7 @@ export function App() {
   // Load settings
   const [settings, setSettings] = useState<UserSettings>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
+      const saved = sessionStorage.getItem(STORAGE_KEY_SETTINGS);
       return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
     } catch {
       return DEFAULT_SETTINGS;
@@ -52,7 +52,7 @@ export function App() {
   // Conversations State
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+      const saved = sessionStorage.getItem(STORAGE_KEY_CONVERSATIONS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -88,49 +88,73 @@ export function App() {
   const [streamingThought, setStreamingThought] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Persist guest conversations to localStorage only when user is NOT signed in
+  // Keep anonymous data in this browser tab only. Never expose it to another visitor.
   useEffect(() => {
     if (!currentUser || currentUser.provider === 'guest') {
       try {
-        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+        sessionStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
       } catch (e) {
-        console.warn('Failed to persist guest conversations:', e);
+        console.warn('Failed to persist session conversations:', e);
       }
     }
   }, [conversations, currentUser]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+      sessionStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
     } catch (e) {
-      console.warn('Failed to persist settings:', e);
+      console.warn('Failed to persist session settings:', e);
     }
   }, [settings]);
 
-  // Client Firebase Auth Listener - strictly local to this browser
+  // Do not let Firebase restore an account from a previous browser session.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthReady(true);
-      if (user) {
-        const profile: UserProfile = {
-          id: user.uid,
-          email: user.email || '',
-          name: user.displayName || 'Andromeda Creator',
-          avatar: user.photoURL || '',
-          provider: 'google',
-          signedInAt: Date.now(),
-        };
-        setCurrentUser(profile);
-        dbSaveUserProfile(user.uid, profile);
-      } else {
-        // Explicitly signed out or new guest visitor
-        setCurrentUser(null);
-        const fresh = createDefaultConversation();
-        setConversations([fresh]);
-        setActiveConversationId(fresh.id);
-      }
-    });
-    return () => unsubscribe();
+    let unsubscribe = () => {};
+    let cancelled = false;
+
+    setPersistence(auth, inMemoryPersistence)
+      .then(() => {
+        if (cancelled) return;
+        // Clear any account restored by an older persistent-auth version.
+        return signOut(auth);
+      })
+      .then(() => {
+        if (cancelled) return;
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          setIsAuthReady(true);
+          const fresh = createDefaultConversation();
+
+          if (user) {
+            const profile: UserProfile = {
+              id: user.uid,
+              email: user.email || '',
+              name: user.displayName || 'Andromeda Creator',
+              avatar: user.photoURL || '',
+              provider: 'google',
+              signedInAt: Date.now(),
+            };
+            // Never show anonymous/session chats while the account is loading.
+            setConversations([fresh]);
+            setActiveConversationId(fresh.id);
+            setCurrentUser(profile);
+            dbSaveUserProfile(user.uid, profile);
+          } else {
+            // Explicitly signed out or new guest visitor.
+            setCurrentUser(null);
+            setConversations([fresh]);
+            setActiveConversationId(fresh.id);
+          }
+        });
+      })
+      .catch((error) => {
+        console.error('Unable to initialize private auth session:', error);
+        setIsAuthReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   // One-time cleanup of any legacy keys from previous app versions
@@ -140,11 +164,16 @@ export function App() {
         'andromeda_conversations_v1',
         'andromeda_conversations_v2',
         'andromeda_conversations_v3',
+        'andromeda_guest_conversations_v4',
+        'andromeda_settings_v4',
         'andromeda_user_profile_v1',
         'andromeda_user_profile_v2',
         'andromeda_user_profile_v3',
       ];
-      legacyKeys.forEach((k) => localStorage.removeItem(k));
+      legacyKeys.forEach((k) => {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      });
     } catch {
       // ignore
     }
@@ -586,6 +615,9 @@ export function App() {
         currentUser={currentUser}
         onLoginSuccess={(profile) => {
           setCurrentUser(profile);
+          const fresh = createDefaultConversation();
+          setConversations([fresh]);
+          setActiveConversationId(fresh.id);
         }}
         onLogout={() => {
           setCurrentUser(null);
@@ -600,7 +632,9 @@ export function App() {
             return next;
           });
           try {
-            localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+            sessionStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+            sessionStorage.removeItem(STORAGE_KEY_SETTINGS);
+            sessionStorage.removeItem(STORAGE_KEY_USER_PROFILE);
             localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
           } catch {
             // ignore

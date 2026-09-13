@@ -274,6 +274,16 @@ export function buildOrchestratedContext({
   const isAndromeda = modelMeta.provider === 'andromeda' || modelMeta.id === 'andromeda-soul-1';
 
   let systemPrompt = settings.systemInstruction || 'You are Andromeda, a sovereign, articulate AI assistant.';
+  systemPrompt += `
+
+[RESPONSE QUALITY CONTRACT]
+- Understand the user's actual goal before answering; make reasonable assumptions explicit.
+- Give a direct answer first, then useful detail in a clear structure.
+- Use the conversation context, attachments, and verified tool results instead of repeating questions.
+- Never invent live facts, tool results, citations, or completed actions. State uncertainty and suggest a verification path.
+- For code, provide runnable, secure, typed examples and explain important trade-offs.
+- For complex tasks, break the work into practical steps and include edge cases.
+- Protect secrets and personal data; ask for confirmation before destructive or externally visible actions.`;
 
   if (isAndromeda) {
     systemPrompt = `You are Andromeda Soul 1 (Andromeda Sovereign Intelligence).
