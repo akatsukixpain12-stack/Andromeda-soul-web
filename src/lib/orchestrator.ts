@@ -1,0 +1,347 @@
+/**
+ * Andromeda Orchestrator Engine (Soul 1 / Soul 2 Architecture)
+ * 
+ * Pipeline:
+ * USER ➔ Andromeda Website ➔ API Gateway ➔ ANDROMEDA ORCHESTRATOR
+ *  ├── 1. Understand request (Intent classification)
+ *  ├── 2. Load conversation context & memory
+ *  ├── 3. Decide what tools are needed (Web search, Calculator, Code execution, Files)
+ *  ├── 4. Build model input
+ *  ▼
+ * LANGUAGE MODEL (Multi-provider routing)
+ *  ▼
+ * Safety / validation (Secret scanner & token protection)
+ *  ▼
+ * Response formatter (Markdown, syntax highlighting, thought traces)
+ *  ▼
+ * Website ➔ USER
+ */
+
+import { ChatMessage, ChatAttachment, UserSettings, AIModelOption } from '../types';
+
+export type OrchestratorIntent =
+  | 'code_generation'
+  | 'math_calculation'
+  | 'web_search'
+  | 'terminal_command'
+  | 'file_analysis'
+  | 'creative_writing'
+  | 'general_reasoning';
+
+export interface ToolExecutionResult {
+  toolName: 'web_search' | 'calculator' | 'code_execution' | 'file_analysis';
+  title: string;
+  output: string;
+  success: boolean;
+}
+
+export interface OrchestrationPlan {
+  intent: OrchestratorIntent;
+  confidence: number;
+  toolsNeeded: ('web_search' | 'calculator' | 'code_execution' | 'file_analysis')[];
+  summary: string;
+}
+
+export interface OrchestratedContext {
+  systemPrompt: string;
+  augmentedPrompt: string;
+  toolResults: ToolExecutionResult[];
+  plan: OrchestrationPlan;
+}
+
+/**
+ * 1. Understand user request & classify intent
+ */
+export function understandRequest(userMessage: string, attachments: ChatAttachment[] = []): OrchestrationPlan {
+  const text = userMessage.toLowerCase().trim();
+
+  // If attachments are present
+  if (attachments.length > 0) {
+    return {
+      intent: 'file_analysis',
+      confidence: 0.95,
+      toolsNeeded: ['file_analysis'],
+      summary: `Inspecting ${attachments.length} attachment(s) with multi-modal context.`,
+    };
+  }
+
+  // Math / Calculator regex
+  const mathPattern = /^(what is|calculate|compute|eval|solve)?\s*[\d\s\+\-\*\/\^\(\)\.\%e\=sqrt|sin|cos|tan|log|pi|tau]+\s*\??$/i;
+  const hasDirectMath = mathPattern.test(text) && /[\+\-\*\/\^\=]/.test(text);
+
+  if (hasDirectMath || text.startsWith('calculate ') || text.startsWith('compute ')) {
+    return {
+      intent: 'math_calculation',
+      confidence: 0.92,
+      toolsNeeded: ['calculator'],
+      summary: 'Deterministic mathematical calculation engine engaged.',
+    };
+  }
+
+  // Web Search intent
+  const searchKeywords = [
+    'latest', 'news', 'current price', 'weather', 'today', 'recent', 'who is currently',
+    'search for', 'look up', 'google', 'stock price', 'release date of 2026', 'update on'
+  ];
+  if (searchKeywords.some(kw => text.includes(kw))) {
+    return {
+      intent: 'web_search',
+      confidence: 0.88,
+      toolsNeeded: ['web_search'],
+      summary: 'Real-time web grounding and search planning activated.',
+    };
+  }
+
+  // Terminal / Shell / Code Execution intent
+  const terminalKeywords = [
+    'run bash', 'run terminal', 'exec', 'execute command', 'npm install', 'git clone',
+    'python script', 'pip install', 'curl ', 'ls -', 'cd ', 'mkdir '
+  ];
+  if (terminalKeywords.some(kw => text.startsWith(kw) || text.includes(`\`\`\`bash`))) {
+    return {
+      intent: 'terminal_command',
+      confidence: 0.85,
+      toolsNeeded: ['code_execution'],
+      summary: 'Code & command execution environment ready.',
+    };
+  }
+
+  // Code generation & architecture
+  const codeKeywords = [
+    'code', 'function', 'class', 'component', 'refactor', 'debug', 'typescript',
+    'python', 'react', 'api', 'dockerfile', 'sql', 'bot', 'algorithm'
+  ];
+  if (codeKeywords.some(kw => text.includes(kw))) {
+    return {
+      intent: 'code_generation',
+      confidence: 0.9,
+      toolsNeeded: [],
+      summary: 'Full-stack software engineering and code synthesis mode.',
+    };
+  }
+
+  return {
+    intent: 'general_reasoning',
+    confidence: 0.8,
+    toolsNeeded: [],
+    summary: 'Uncapped sovereign intelligence & deep reasoning pipeline.',
+  };
+}
+
+/**
+ * 2. Retrieve relevant memory & conversation context
+ */
+export function retrieveMemory(
+  userMessage: string,
+  history: ChatMessage[],
+  settings: UserSettings
+): { recentContext: string; rememberedUser: string } {
+  const rememberedUser = settings.userName || 'Creator';
+  
+  // Extract key topics from history
+  const recentExchanges = history
+    .slice(-6)
+    .map(m => `${m.role === 'user' ? rememberedUser : 'Andromeda'}: ${m.content.slice(0, 300)}`)
+    .join('\n');
+
+  return {
+    recentContext: recentExchanges,
+    rememberedUser,
+  };
+}
+
+/**
+ * 3 & 4. Execute deterministic tools if needed
+ */
+export async function executeTools(
+  plan: OrchestrationPlan,
+  userMessage: string,
+  attachments: ChatAttachment[] = [],
+  settings: UserSettings
+): Promise<ToolExecutionResult[]> {
+  const results: ToolExecutionResult[] = [];
+
+  for (const tool of plan.toolsNeeded) {
+    if (tool === 'calculator' && settings.enableCalculator !== false) {
+      try {
+        const cleanExpr = userMessage
+          .replace(/^(what is|calculate|compute|eval|solve)\s*/i, '')
+          .replace(/\?$/, '')
+          .trim();
+
+        // Safe client-side math evaluator
+        const sanitized = cleanExpr.replace(/[^0-9\+\-\*\/\(\)\.\s\^\%e]/g, '');
+        if (sanitized) {
+          // eslint-disable-next-line no-new-func
+          const val = Function(`'use strict'; return (${sanitized.replace(/\^/g, '**')})`)();
+          results.push({
+            toolName: 'calculator',
+            title: 'Exact Calculator Evaluator',
+            output: `Expression: \`${cleanExpr}\` = **${val}**`,
+            success: true,
+          });
+        }
+      } catch (err: any) {
+        results.push({
+          toolName: 'calculator',
+          title: 'Calculator Tool',
+          output: `Evaluation note: ${err.message}`,
+          success: false,
+        });
+      }
+    }
+
+    if (tool === 'file_analysis' && attachments.length > 0) {
+      const summaries = attachments.map(att => `- **${att.name}** (${att.type}, ${Math.round(att.size / 1024)} KB)`).join('\n');
+      results.push({
+        toolName: 'file_analysis',
+        title: 'Workspace File Inspector',
+        output: `Active Analyzed Attachments:\n${summaries}`,
+        success: true,
+      });
+    }
+
+    if (tool === 'web_search' && settings.enableWebSearch !== false) {
+      results.push({
+        toolName: 'web_search',
+        title: 'Search Grounding Query Formulator',
+        output: `Formulated Search Target: "${userMessage.slice(0, 100)}" — Live grounding engaged.`,
+        success: true,
+      });
+    }
+
+    if (tool === 'code_execution') {
+      try {
+        // Extract bash / shell command from message if structured
+        let commandToRun = '';
+        const match = userMessage.match(/```(?:bash|sh|cmd)?\n([\s\S]*?)\n```/);
+        if (match) {
+          commandToRun = match[1].trim();
+        } else if (userMessage.startsWith('run ') || userMessage.startsWith('exec ')) {
+          commandToRun = userMessage.replace(/^(?:run|exec)\s+/i, '').trim();
+        }
+
+        if (commandToRun) {
+          const res = await fetch('/api/terminal/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: commandToRun, timeoutMs: 10000 })
+          });
+          const json = await res.json();
+          results.push({
+            toolName: 'code_execution',
+            title: `Terminal Runner: \`${commandToRun.slice(0, 40)}\``,
+            output: json.success
+              ? `Exit Code: 0\n\`\`\`\n${(json.stdout || '(no output)').trim()}\n\`\`\``
+              : `Exit Code: ${json.exitCode}\n\`\`\`\n${(json.stderr || json.error || 'Execution failed').trim()}\n\`\`\``,
+            success: json.success,
+          });
+        }
+      } catch (err: any) {
+        results.push({
+          toolName: 'code_execution',
+          title: 'Terminal Execution Engine',
+          output: `Command runner note: ${err.message}`,
+          success: false,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 5. Construct Structured Model Context
+ */
+export function buildOrchestratedContext({
+  userMessage,
+  history,
+  attachments = [],
+  settings,
+  modelMeta,
+  toolResults,
+  plan,
+}: {
+  userMessage: string;
+  history: ChatMessage[];
+  attachments?: ChatAttachment[];
+  settings: UserSettings;
+  modelMeta: AIModelOption;
+  toolResults: ToolExecutionResult[];
+  plan: OrchestrationPlan;
+}): OrchestratedContext {
+  const isAndromeda = modelMeta.provider === 'andromeda' || modelMeta.id === 'andromeda-soul-1';
+
+  let systemPrompt = settings.systemInstruction || 'You are Andromeda, a sovereign, articulate AI assistant.';
+
+  if (isAndromeda) {
+    systemPrompt = `You are Andromeda Soul 1 (Andromeda Sovereign Intelligence).
+You possess frontier reasoning, deep software engineering capabilities, and clean structured formatting.
+Always deliver production-ready code, analytical proofs, and proactive insights.
+
+[ORCHESTRATION PIPELINE ACTIVE]
+- Request Intent: ${plan.intent.toUpperCase()} (${plan.summary})
+- User Profile: ${settings.userName || 'Creator'}
+${toolResults.length > 0 ? `\n[VERIFIED TOOL RESULTS]:\n${toolResults.map(t => `${t.title}:\n${t.output}`).join('\n\n')}\n` : ''}`;
+  } else if (toolResults.length > 0) {
+    systemPrompt += `\n\n[TOOL CONTEXT]:\n${toolResults.map(t => `${t.title}:\n${t.output}`).join('\n\n')}`;
+  }
+
+  return {
+    systemPrompt,
+    augmentedPrompt: userMessage,
+    toolResults,
+    plan,
+  };
+}
+
+/**
+ * 7. Safety check and secret redactor
+ */
+export function safetyCheck(content: string, protectedTokens: string[] = []): string {
+  let safe = content;
+  
+  // Redact potential API keys (OpenAI, Anthropic, Gemini, Groq, Discord)
+  const leakPatterns = [
+    /sk-[a-zA-Z0-9]{20,60}/g,
+    /sk-ant-[a-zA-Z0-9\-_]{20,90}/g,
+    /gsk_[a-zA-Z0-9]{20,60}/g,
+    /AIzaSy[a-zA-Z0-9_\-]{30,45}/g,
+    /sk-or-v1-[a-zA-Z0-9]{50,80}/g,
+  ];
+
+  for (const pat of leakPatterns) {
+    safe = safe.replace(pat, '[REDACTED_API_KEY]');
+  }
+
+  for (const secret of protectedTokens) {
+    if (secret && secret.length >= 8) {
+      safe = safe.replaceAll(secret, '[PROTECTED_TOKEN]');
+    }
+  }
+
+  return safe;
+}
+
+/**
+ * 8. Memory storage helper (session memory)
+ */
+export function storeSessionMemory(userMessage: string, assistantResponse: string) {
+  try {
+    const memoryKey = 'andromeda_session_memory';
+    const existing = sessionStorage.getItem(memoryKey);
+    const parsed = existing ? JSON.parse(existing) : [];
+    
+    parsed.push({
+      timestamp: Date.now(),
+      summary: userMessage.slice(0, 100),
+      responseSnippet: assistantResponse.slice(0, 150),
+    });
+
+    // Keep last 20 memories
+    sessionStorage.setItem(memoryKey, JSON.stringify(parsed.slice(-20)));
+  } catch {
+    // ignore session storage limitations
+  }
+}

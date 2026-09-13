@@ -1,6 +1,13 @@
 import { GoogleGenAI } from '@google/genai';
 import { ChatMessage, ChatAttachment, UserSettings, AIModelOption } from '../types';
-import { AI_MODELS } from '../data/models';
+import { findModelById } from '../data/models';
+import {
+  understandRequest,
+  executeTools,
+  buildOrchestratedContext,
+  safetyCheck,
+  storeSessionMemory,
+} from './orchestrator';
 
 export interface StreamChatParams {
   prompt: string;
@@ -17,13 +24,8 @@ export interface StreamChatParams {
 
 /**
  * Universal Multi-Provider AI Streaming Client
- * Supports:
- * - Google Gemini (Free Tier / Official API)
- * - Anthropic Claude 3.7 / 3.5 Style with Extended Thinking
- * - Ollama (100% Free & Local via http://localhost:11434)
- * - LM Studio (100% Free & Local via http://localhost:1234/v1)
- * - Groq (Free fast inference)
- * - OpenRouter (Free community models)
+ * Orchestrates user intent, executes deterministic tools, routes to selected model provider,
+ * performs safety validation, and streams the output with full thought-trace support.
  */
 export async function streamMultiProviderChat({
   prompt,
@@ -37,88 +39,205 @@ export async function streamMultiProviderChat({
   onThought,
   signal,
 }: StreamChatParams): Promise<string> {
-  const modelMeta = AI_MODELS.find((m) => m.id === modelId) || AI_MODELS[0];
-  const provider = modelMeta.provider;
+  const modelMeta = findModelById(modelId, settings.customModels);
+  const provider = modelMeta.provider || 'gemini';
 
-  // 1. OLLAMA (LOCAL & 100% FREE)
-  if (provider === 'ollama') {
-    return streamOllama({
-      prompt,
-      history,
-      modelMeta,
-      systemInstruction,
-      attachments,
-      settings,
-      onToken,
-      onThought,
-      signal,
-    });
+  // 1. Understand request & plan tools via Andromeda Orchestrator
+  const plan = understandRequest(prompt, attachments);
+
+  // 2. Execute necessary tools (Web search grounding, Calculator, File inspector)
+  const toolResults = await executeTools(plan, prompt, attachments, settings);
+
+  // If calculator tool produced direct exact result and no attachments/complex text needed
+  if (plan.intent === 'math_calculation' && toolResults.length > 0 && toolResults[0].success) {
+    const directMath = `🧮 **Andromeda Math Engine Result**\n\n${toolResults[0].output}\n\n*Calculated with exact deterministic floating-point precision.*`;
+    // If it's a simple calculation, stream the exact math result directly or pass to LLM
+    if (!prompt.toLowerCase().includes('explain') && !prompt.toLowerCase().includes('how')) {
+      return streamTextSimulation(directMath, onToken, signal);
+    }
   }
 
-  // 2. LM STUDIO (LOCAL & 100% FREE)
-  if (provider === 'lmstudio') {
-    return streamLMStudio({
-      prompt,
-      history,
-      modelMeta,
-      systemInstruction,
-      attachments,
-      settings,
-      onToken,
-      onThought,
-      signal,
-    });
-  }
-
-  // 3. GROQ (FAST FREE TIER)
-  if (provider === 'groq') {
-    return streamOpenAICompatible({
-      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-      apiKey: settings.groqApiKey || '',
-      modelName: settings.groqModel || 'llama-3.3-70b-versatile',
-      prompt,
-      history,
-      systemInstruction,
-      onToken,
-      signal,
-      providerName: 'Groq Free Tier',
-    });
-  }
-
-  // 4. OPENROUTER (COMMUNITY FREE TIER)
-  if (provider === 'openrouter') {
-    return streamOpenAICompatible({
-      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-      apiKey: settings.openRouterApiKey || '',
-      modelName: settings.openRouterModel || 'deepseek/deepseek-r1:free',
-      prompt,
-      history,
-      systemInstruction,
-      onToken,
-      onThought,
-      signal,
-      providerName: 'OpenRouter Free',
-    });
-  }
-
-  // 5. GOOGLE GEMINI & CLAUDE
-  return streamGeminiOrClaude({
-    prompt,
+  // 3. Build orchestrated context
+  const orchestrated = buildOrchestratedContext({
+    userMessage: prompt,
     history,
-    modelId,
-    modelMeta,
-    systemInstruction,
-    enableThinking,
     attachments,
     settings,
-    onToken,
-    onThought,
-    signal,
+    modelMeta,
+    toolResults,
+    plan,
   });
+
+  let rawResponse = '';
+
+  // 4. Route to specific Provider Engine
+
+  // OLLAMA (Local & Free)
+  if (provider === 'ollama') {
+    rawResponse = await streamOllama({
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      modelMeta,
+      systemInstruction: orchestrated.systemPrompt,
+      attachments,
+      settings,
+      onToken,
+      onThought,
+      signal,
+    });
+  }
+  // LM STUDIO (Local & Free)
+  else if (provider === 'lmstudio') {
+    rawResponse = await streamLMStudio({
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      modelMeta,
+      systemInstruction: orchestrated.systemPrompt,
+      attachments,
+      settings,
+      onToken,
+      onThought,
+      signal,
+    });
+  }
+  // OPENAI (Official or Custom)
+  else if (provider === 'openai') {
+    const targetModel = modelMeta.customModelTag || (modelId === 'openai-o3-mini' ? 'o3-mini' : modelId === 'openai-gpt-4o-mini' ? 'gpt-4o-mini' : 'gpt-4o');
+    rawResponse = await streamOpenAICompatible({
+      endpoint: modelMeta.customBaseUrl || 'https://api.openai.com/v1/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.openaiApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: 'OpenAI',
+    });
+  }
+  // ANTHROPIC CLAUDE
+  else if (provider === 'anthropic') {
+    const targetModel = modelMeta.customModelTag || (modelId === 'anthropic-claude-3-5-haiku' ? 'claude-3-5-haiku-20241022' : 'claude-3-7-sonnet-20250219');
+    rawResponse = await streamAnthropic({
+      apiKey: modelMeta.customApiKey || settings.anthropicApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      enableThinking: enableThinking || modelMeta.supportsThinking || false,
+      onToken,
+      onThought,
+      signal,
+    });
+  }
+  // DEEPSEEK DIRECT
+  else if (provider === 'deepseek') {
+    const targetModel = modelMeta.customModelTag || (modelId === 'deepseek-reasoner' ? 'deepseek-reasoner' : 'deepseek-chat');
+    rawResponse = await streamOpenAICompatible({
+      endpoint: modelMeta.customBaseUrl || 'https://api.deepseek.com/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.deepseekApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: 'DeepSeek Official',
+    });
+  }
+  // GROQ LPUS (Ultra Fast)
+  else if (provider === 'groq') {
+    const targetModel = modelMeta.customModelTag || (modelId === 'groq-deepseek-r1-distill' ? 'deepseek-r1-distill-llama-70b' : 'llama-3.3-70b-versatile');
+    rawResponse = await streamOpenAICompatible({
+      endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.groqApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: 'Groq Cloud',
+    });
+  }
+  // OPENROUTER
+  else if (provider === 'openrouter') {
+    const targetModel = modelMeta.customModelTag || (modelId === 'openrouter-deepseek-r1-free' ? 'deepseek/deepseek-r1:free' : 'openai/gpt-4o-mini');
+    rawResponse = await streamOpenAICompatible({
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.openRouterApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: 'OpenRouter',
+    });
+  }
+  // MISTRAL AI
+  else if (provider === 'mistral') {
+    const targetModel = modelMeta.customModelTag || 'mistral-large-latest';
+    rawResponse = await streamOpenAICompatible({
+      endpoint: 'https://api.mistral.ai/v1/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.mistralApiKey || '',
+      modelName: targetModel,
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: 'Mistral AI',
+    });
+  }
+  // CUSTOM OPENAI COMPATIBLE ENDPOINT
+  else if (provider === 'custom') {
+    rawResponse = await streamOpenAICompatible({
+      endpoint: modelMeta.customBaseUrl || settings.customApiBaseUrl || 'http://localhost:8000/v1/chat/completions',
+      apiKey: modelMeta.customApiKey || settings.customApiKey || '',
+      modelName: modelMeta.customModelTag || settings.customApiModel || 'custom-model',
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      systemInstruction: orchestrated.systemPrompt,
+      onToken,
+      onThought,
+      signal,
+      providerName: modelMeta.name || 'Custom AI Model',
+    });
+  }
+  // GEMINI & ANDROMEDA SOUL
+  else {
+    rawResponse = await streamGeminiOrClaude({
+      prompt: orchestrated.augmentedPrompt,
+      history,
+      modelId,
+      modelMeta,
+      systemInstruction: orchestrated.systemPrompt,
+      enableThinking: enableThinking || modelMeta.supportsThinking || false,
+      attachments,
+      settings,
+      onToken,
+      onThought,
+      signal,
+    });
+  }
+
+  // 5. Safety validation & token protection
+  const validated = safetyCheck(rawResponse);
+
+  // 6. Store in session memory
+  storeSessionMemory(prompt, validated);
+
+  return validated;
 }
 
 /**
- * Streams response from local Ollama instance (e.g. http://localhost:11434)
+ * Streams response from local Ollama instance
  */
 async function streamOllama({
   prompt,
@@ -142,7 +261,7 @@ async function streamOllama({
   signal?: AbortSignal;
 }): Promise<string> {
   const host = (settings.ollamaHost || 'http://localhost:11434').replace(/\/+$/, '');
-  let targetModel = settings.ollamaModel || 'deepseek-r1:8b';
+  let targetModel = modelMeta.customModelTag || settings.ollamaModel || 'deepseek-r1:8b';
 
   if (modelMeta.id === 'ollama-llama3.2') targetModel = 'llama3.2';
   if (modelMeta.id === 'ollama-deepseek-r1') targetModel = 'deepseek-r1:8b';
@@ -158,7 +277,6 @@ async function streamOllama({
     messages.push({ role: m.role, content: m.content });
   }
 
-  // Handle images for multimodal Ollama (llava, etc.)
   const images: string[] = [];
   for (const att of attachments) {
     if (att.type.startsWith('image/') && att.data) {
@@ -215,7 +333,6 @@ async function streamOllama({
           const chunk = parsed.message?.content || '';
 
           if (chunk) {
-            // Handle DeepSeek-R1 <think> tags for reasoning accordion
             if (chunk.includes('<think>')) {
               inThinkBlock = true;
             }
@@ -223,9 +340,7 @@ async function streamOllama({
             if (inThinkBlock) {
               thoughtBuffer += chunk;
               if (onThought) {
-                const cleanThought = thoughtBuffer
-                  .replace(/<\/?think>/g, '')
-                  .trim();
+                const cleanThought = thoughtBuffer.replace(/<\/?think>/g, '').trim();
                 onThought(cleanThought);
               }
               if (chunk.includes('</think>')) {
@@ -237,7 +352,7 @@ async function streamOllama({
             }
           }
         } catch {
-          // ignore incomplete JSON fragment
+          // ignore chunk parse
         }
       }
     }
@@ -248,8 +363,7 @@ async function streamOllama({
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
 
-    // Friendly local Ollama setup instruction
-    const fallbackMessage = `⚠️ **Could Not Connect to Local Ollama**\n\nUnable to reach Ollama at \`${host}\`.\n\n### How to Run Ollama for Free:\n1. **Install Ollama** (if not already installed) from [ollama.com](https://ollama.com)\n2. **Start the Ollama server** in your terminal:\n   \`\`\`bash\n   ollama serve\n   \`\`\`\n3. **Pull and run a model** (e.g. DeepSeek-R1 or Llama 3.2):\n   \`\`\`bash\n   ollama run ${targetModel}\n   \`\`\`\n4. If running from a browser origin, enable CORS by starting Ollama with:\n   \`\`\`bash\n   OLLAMA_ORIGINS="*" ollama serve\n   \`\`\`\n\n*You can also switch to **Google Gemini (Free Tier)** in the top model menu to chat immediately without running anything locally!*`;
+    const fallbackMessage = `⚠️ **Could Not Connect to Local Ollama**\n\nUnable to reach Ollama at \`${host}\`.\n\n### How to Run Ollama for Free:\n1. **Install Ollama** from [ollama.com](https://ollama.com)\n2. **Start the server** in terminal:\n   \`\`\`bash\n   ollama serve\n   \`\`\`\n3. **Pull and run model**:\n   \`\`\`bash\n   ollama run ${targetModel}\n   \`\`\`\n4. Enable browser access:\n   \`\`\`bash\n   OLLAMA_ORIGINS="*" ollama serve\n   \`\`\`\n\n*Or switch to **Andromeda Soul 1** or **Google Gemini** in the top model menu to chat immediately without running anything locally!*`;
 
     return streamTextSimulation(fallbackMessage, onToken, signal);
   }
@@ -258,7 +372,7 @@ async function streamOllama({
 }
 
 /**
- * Streams response from local LM Studio server (http://localhost:1234/v1)
+ * Streams response from local LM Studio server
  */
 async function streamLMStudio({
   prompt,
@@ -282,7 +396,7 @@ async function streamLMStudio({
   signal?: AbortSignal;
 }): Promise<string> {
   const host = (settings.lmStudioHost || 'http://localhost:1234/v1').replace(/\/+$/, '');
-  const modelName = settings.lmStudioModel || 'default';
+  const modelName = modelMeta.customModelTag || settings.lmStudioModel || 'default';
 
   const messages: any[] = [];
   if (systemInstruction) {
@@ -339,7 +453,7 @@ async function streamLMStudio({
               onToken(delta);
             }
           } catch {
-            // Ignore parse error on chunk
+            // chunk
           }
         }
       }
@@ -349,14 +463,15 @@ async function streamLMStudio({
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
 
-    const fallback = `⚠️ **Could Not Connect to LM Studio Local Server**\n\nUnable to reach LM Studio at \`${host}\`.\n\n### How to Run Free Models in LM Studio:\n1. Open **LM Studio** on your computer.\n2. Download any open model (e.g., Llama 3.2, DeepSeek-R1, Mistral, Qwen).\n3. Click on the **Developer / Local Server** tab (<-> icon on the left).\n4. Click **Start Server** on port 1234.\n5. Ensure **CORS** is enabled in the LM Studio server settings.\n\n*Or switch to **Gemini 2.5 Flash (Free Tier)** in the top menu for immediate instant chat!*`;
+    const fallback = `⚠️ **Could Not Connect to LM Studio Local Server**\n\nUnable to reach LM Studio at \`${host}\`.\n\n### How to Run Free Models in LM Studio:\n1. Open **LM Studio** on your computer.\n2. Download any open model (e.g., Llama 3.3, DeepSeek-R1, Mistral, Qwen).\n3. Click on the **Developer / Local Server** tab (<-> icon on the left).\n4. Click **Start Server** on port 1234.\n5. Ensure **CORS** is enabled in the LM Studio server settings.\n\n*Or switch to **Andromeda Soul 1** in the top menu for immediate instant chat!*`;
 
     return streamTextSimulation(fallback, onToken, signal);
   }
 }
 
 /**
- * Generic OpenAI-compatible streaming (Groq, OpenRouter)
+ * Generic OpenAI-compatible streaming (OpenAI, DeepSeek, Groq, OpenRouter, Mistral, Custom APIs)
+ * Automatically uses server proxy to bypass CORS restrictions if direct call encounters CORS.
  */
 async function streamOpenAICompatible({
   endpoint,
@@ -381,8 +496,15 @@ async function streamOpenAICompatible({
   signal?: AbortSignal;
   providerName: string;
 }): Promise<string> {
-  if (!apiKey && providerName.includes('Groq')) {
-    const msg = `⚠️ **${providerName} API Key Required**\n\nTo use ${providerName}, please enter your free API key in **Settings > Providers & Keys** (get a free key at [console.groq.com](https://console.groq.com)).\n\n*Tip: You can switch to **Google Gemini** or **Local Ollama** to chat for free right now!*`;
+  const isDirectThirdParty = endpoint.includes('api.openai.com') ||
+    endpoint.includes('api.deepseek.com') ||
+    endpoint.includes('api.anthropic.com') ||
+    endpoint.includes('openrouter.ai') ||
+    endpoint.includes('api.groq.com') ||
+    endpoint.includes('api.mistral.ai');
+
+  if (!apiKey && isDirectThirdParty && !endpoint.includes('free')) {
+    const msg = `⚠️ **${providerName} API Key Required**\n\nTo use **${modelName}** from ${providerName}, please configure your API key in **Settings > Providers & Keys**.\n\n*You can switch to **Andromeda Soul 1** or **Google Gemini** to chat for free right now without an API key!*`;
     return streamTextSimulation(msg, onToken, signal);
   }
 
@@ -395,30 +517,42 @@ async function streamOpenAICompatible({
   }
   messages.push({ role: 'user', content: prompt });
 
+  const bodyPayload = {
+    model: modelName,
+    messages,
+    stream: true,
+  };
+
   let accumulated = '';
+  let inThinkBlock = false;
+  let thoughtBuffer = '';
+
+  // Use backend proxy for cloud APIs to prevent browser CORS blocks
+  const targetUrl = isDirectThirdParty ? '/api/proxy/chat' : endpoint;
+  const postBody = isDirectThirdParty
+    ? JSON.stringify({ endpoint, apiKey, body: bodyPayload })
+    : JSON.stringify(bodyPayload);
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!isDirectThirdParty && apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+  }
 
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(targetUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey || 'free'}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages,
-        stream: true,
-      }),
+      headers,
+      body: postBody,
       signal,
     });
 
     if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error?.message || `HTTP ${res.status}`);
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Upstream ${res.status}: ${errText || res.statusText}`);
     }
 
     const reader = res.body?.getReader();
-    if (!reader) throw new Error('No stream body');
+    if (!reader) throw new Error('No stream body returned');
 
     const decoder = new TextDecoder();
     let buffer = '';
@@ -439,12 +573,33 @@ async function streamOpenAICompatible({
           try {
             const parsed = JSON.parse(dataStr);
             const delta = parsed.choices?.[0]?.delta?.content || '';
+            const reasoningDelta = parsed.choices?.[0]?.delta?.reasoning_content || '';
+
+            if (reasoningDelta && onThought) {
+              thoughtBuffer += reasoningDelta;
+              onThought(thoughtBuffer);
+            }
+
             if (delta) {
-              accumulated += delta;
-              onToken(delta);
+              if (delta.includes('<think>')) {
+                inThinkBlock = true;
+              }
+
+              if (inThinkBlock) {
+                thoughtBuffer += delta;
+                if (onThought) {
+                  onThought(thoughtBuffer.replace(/<\/?think>/g, '').trim());
+                }
+                if (delta.includes('</think>')) {
+                  inThinkBlock = false;
+                }
+              } else {
+                accumulated += delta;
+                onToken(delta);
+              }
             }
           } catch {
-            // chunk fragment
+            // fragment
           }
         }
       }
@@ -453,7 +608,121 @@ async function streamOpenAICompatible({
     return accumulated;
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    const msg = `⚠️ **${providerName} Error**: ${err.message}\n\nPlease check your API key in **Settings > Providers & Keys** or select **Gemini 2.5 Flash** for free instant chat.`;
+    const msg = `⚠️ **${providerName} Error**: ${err.message}\n\nPlease check your credentials in **Settings > Providers & Keys** or select **Andromeda Soul 1** for instant AI chat.`;
+    return streamTextSimulation(msg, onToken, signal);
+  }
+}
+
+/**
+ * Anthropic Messages API Streaming (via server proxy)
+ */
+async function streamAnthropic({
+  apiKey,
+  modelName,
+  prompt,
+  history,
+  systemInstruction,
+  enableThinking,
+  onToken,
+  onThought,
+  signal,
+}: {
+  apiKey: string;
+  modelName: string;
+  prompt: string;
+  history: ChatMessage[];
+  systemInstruction: string;
+  enableThinking: boolean;
+  onToken: (token: string) => void;
+  onThought?: (thought: string) => void;
+  signal?: AbortSignal;
+}): Promise<string> {
+  if (!apiKey) {
+    const msg = `⚠️ **Anthropic Claude API Key Required**\n\nTo use **${modelName}**, please provide your Anthropic API key in **Settings > Providers & Keys** (from [console.anthropic.com](https://console.anthropic.com)).\n\n*Or select **Andromeda Soul 1** to chat immediately for free!*`;
+    return streamTextSimulation(msg, onToken, signal);
+  }
+
+  const messages: any[] = [];
+  for (const m of history.slice(-8)) {
+    messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
+  }
+  messages.push({ role: 'user', content: prompt });
+
+  const bodyPayload: any = {
+    model: modelName,
+    messages,
+    max_tokens: 4096,
+    stream: true,
+  };
+  if (systemInstruction) {
+    bodyPayload.system = systemInstruction;
+  }
+  if (enableThinking && modelName.includes('claude-3-7')) {
+    bodyPayload.thinking = { type: 'enabled', budget_tokens: 2048 };
+  }
+
+  let accumulated = '';
+  let thoughtBuffer = '';
+
+  try {
+    const res = await fetch('/api/proxy/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: 'https://api.anthropic.com/v1/messages',
+        apiKey,
+        isAnthropic: true,
+        body: bodyPayload,
+      }),
+      signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Anthropic ${res.status}: ${errText || res.statusText}`);
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('No stream body returned');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const clean = line.trim();
+        if (clean.startsWith('data: ')) {
+          const dataStr = clean.slice(6);
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.type === 'content_block_delta') {
+              if (parsed.delta?.type === 'thinking_delta' && onThought) {
+                thoughtBuffer += parsed.delta.thinking;
+                onThought(thoughtBuffer);
+              } else if (parsed.delta?.type === 'text_delta') {
+                const text = parsed.delta.text || '';
+                accumulated += text;
+                onToken(text);
+              }
+            }
+          } catch {
+            // chunk
+          }
+        }
+      }
+    }
+
+    return accumulated;
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw err;
+    const msg = `⚠️ **Anthropic Claude Error**: ${err.message}\n\nPlease check your key in **Settings > Providers & Keys** or select **Andromeda Soul 1**.`;
     return streamTextSimulation(msg, onToken, signal);
   }
 }
@@ -486,18 +755,8 @@ async function streamGeminiOrClaude({
   onThought?: (thought: string) => void;
   signal?: AbortSignal;
 }): Promise<string> {
-  const isAndromedaPersona = modelMeta.provider === 'andromeda';
+  const isAndromedaPersona = modelMeta.provider === 'andromeda' || modelId === 'andromeda-soul-1';
   const effectiveThinking = enableThinking || modelMeta.supportsThinking || false;
-
-  let effectiveSystemInstruction = systemInstruction;
-  if (isAndromedaPersona) {
-    effectiveSystemInstruction = `You are Andromeda, an advanced sovereign AI assistant created in the Andromeda environment.
-You write in an elegant, clear, structured, and insightful manner.
-When responding to complex or analytical questions, provide deep reasoning and clear step-by-step explanations.
-For code, provide clean, idiomatic, and production-ready snippets with minimal unnecessary chatter.
-${effectiveThinking ? 'You engage extended thinking mode: break down complex considerations thoroughly.' : ''}
-${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
-  }
 
   let accumulated = '';
 
@@ -509,8 +768,8 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
       body: JSON.stringify({
         prompt,
         history: history.slice(-10),
-        modelId: (modelId === 'andromeda-soul-1' || modelId.includes('gemini')) ? modelId : 'gemini-3.8-flash',
-        systemInstruction: effectiveSystemInstruction,
+        modelId: (modelId === 'andromeda-soul-1' || modelId.includes('gemini')) ? modelId : 'gemini-3.6-flash',
+        systemInstruction,
         enableThinking: effectiveThinking,
         attachments,
       }),
@@ -553,11 +812,9 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
                   return accumulated;
                 }
               } catch (e: any) {
-                // If it's our thrown custom error, bubble it up
                 if (e.message && currentEvent === 'error') {
                   throw e;
                 }
-                // otherwise it is a partial JSON chunk error, ignore
               }
             }
           }
@@ -568,7 +825,6 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
         }
       }
     } else if (!res.ok) {
-      // If server responded with non-200, try to get JSON or text error
       try {
         const errJson = await res.json();
         if (errJson.error) {
@@ -580,7 +836,6 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    // Propagate backend errors instead of silently swallowing and failing to fallback
     if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('network')) {
       throw err;
     }
@@ -620,7 +875,7 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
         model: targetModel,
         contents,
         config: {
-          systemInstruction: effectiveSystemInstruction || 'You are a brilliant AI assistant.',
+          systemInstruction: systemInstruction || 'You are Andromeda, a brilliant AI assistant.',
           temperature: settings.temperature ?? 0.7,
         },
       });
@@ -641,8 +896,7 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
     }
   }
 
-  // 3. Clear actionable error instead of generic echo fallback
-  const errMsg = `⚠️ **Provider Connection Error**\n\nUnable to reach backend API or provider for **${modelMeta.name}** (${modelMeta.provider}). Please ensure your backend server is running, check your API keys in **Settings > Providers & Keys**, or select **Google Gemini 2.5 Flash** for instant cloud chat.`;
+  const errMsg = `⚠️ **Provider Connection Error**\n\nUnable to reach backend API or provider for **${modelMeta.name}** (${modelMeta.provider}). Please ensure your backend server is running, check your API keys in **Settings > Providers & Keys**, or select **Andromeda Soul 1** for instant cloud chat.`;
   return streamTextSimulation(errMsg, onToken, signal);
 }
 

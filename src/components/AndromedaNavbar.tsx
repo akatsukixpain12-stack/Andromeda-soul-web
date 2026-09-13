@@ -8,15 +8,18 @@ import {
   ChevronDown,
   Check,
   CheckCircle2,
-  AlertCircle,
   Edit2,
   HardDrive,
   Flame,
   Zap,
-  User,
+  Bot,
+  Globe,
+  Layers,
+  Server,
+  Terminal,
 } from 'lucide-react';
 import { AIModelOption, ProviderConnectionStatus, UserProfile } from '../types';
-import { AI_MODELS } from '../data/models';
+import { getAllModels, findModelById } from '../data/models';
 import { UserAvatar } from './UserAvatar';
 
 interface AndromedaNavbarProps {
@@ -31,6 +34,7 @@ interface AndromedaNavbarProps {
   activeConversationTitle?: string;
   onRenameActiveConversation?: (newTitle: string) => void;
   connectionStatus?: ProviderConnectionStatus;
+  customModels?: AIModelOption[];
 }
 
 export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
@@ -44,14 +48,15 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
   currentUser,
   activeConversationTitle,
   onRenameActiveConversation,
-  connectionStatus,
+  customModels = [],
 }) => {
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const currentModel = AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[0];
+  const allModels = getAllModels(customModels);
+  const currentModel = findModelById(selectedModelId, customModels);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -76,22 +81,44 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
     setIsEditingTitle(false);
   };
 
-  const getProviderIcon = (provider: string) => {
+  const getProviderIcon = (provider?: string) => {
     switch (provider) {
       case 'gemini':
         return <Sparkles className="w-4 h-4 text-blue-600" />;
       case 'andromeda':
         return <Flame className="w-4 h-4 text-amber-600" />;
+      case 'openai':
+        return <Globe className="w-4 h-4 text-emerald-600" />;
+      case 'anthropic':
+        return <Layers className="w-4 h-4 text-purple-600" />;
+      case 'deepseek':
+        return <Server className="w-4 h-4 text-sky-600" />;
+      case 'groq':
+        return <Zap className="w-4 h-4 text-orange-600" />;
+      case 'openrouter':
+        return <Globe className="w-4 h-4 text-indigo-600" />;
       case 'ollama':
         return <Cpu className="w-4 h-4 text-emerald-600" />;
       case 'lmstudio':
         return <HardDrive className="w-4 h-4 text-purple-600" />;
-      case 'groq':
-        return <Zap className="w-4 h-4 text-orange-600" />;
+      case 'custom':
+        return <Terminal className="w-4 h-4 text-neutral-600" />;
       default:
-        return <Sparkles className="w-4 h-4 text-indigo-600" />;
+        return <Bot className="w-4 h-4 text-amber-600" />;
     }
   };
+
+  const modelGroups = [
+    { key: 'andromeda', title: 'Andromeda Frontier & Extended Thinking', filter: (m: AIModelOption) => m.provider === 'andromeda' },
+    { key: 'custom', title: `Custom Configured Models (${customModels.length})`, filter: (m: AIModelOption) => m.isCustom === true },
+    { key: 'gemini', title: 'Google Gemini (Multimodal & Fast)', filter: (m: AIModelOption) => m.provider === 'gemini' && !m.isCustom },
+    { key: 'openai', title: 'OpenAI (GPT-4o, o3-mini)', filter: (m: AIModelOption) => m.provider === 'openai' && !m.isCustom },
+    { key: 'anthropic', title: 'Anthropic Claude (3.7 Sonnet, 3.5 Haiku)', filter: (m: AIModelOption) => m.provider === 'anthropic' && !m.isCustom },
+    { key: 'deepseek', title: 'DeepSeek Direct (V3 & R1)', filter: (m: AIModelOption) => m.provider === 'deepseek' && !m.isCustom },
+    { key: 'groq', title: 'Groq Cloud (Ultra-Fast 300+ tok/s)', filter: (m: AIModelOption) => m.provider === 'groq' && !m.isCustom },
+    { key: 'openrouter', title: 'OpenRouter & Mistral AI', filter: (m: AIModelOption) => (m.provider === 'openrouter' || m.provider === 'mistral') && !m.isCustom },
+    { key: 'local', title: 'Local Offline (Ollama & LM Studio)', filter: (m: AIModelOption) => (m.provider === 'ollama' || m.provider === 'lmstudio') && !m.isCustom },
+  ];
 
   return (
     <header className="sticky top-0 z-30 bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#EAE8E2] px-2 sm:px-4 py-2 sm:py-2.5 transition-colors shrink-0">
@@ -108,7 +135,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           </button>
 
           <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F2F0E8] border border-[#E5E3DB] shrink-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
             <span className="text-xs font-semibold text-[#44403C] tracking-wide uppercase">Andromeda</span>
           </div>
 
@@ -151,9 +178,9 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
               <span className="text-sm font-medium text-[#1C1917] whitespace-nowrap">{currentModel.name}</span>
             </div>
 
-            {currentModel.isFree && (
-              <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Free
+            {currentModel.badge && (
+              <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                {currentModel.badge}
               </span>
             )}
 
@@ -166,37 +193,29 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
 
           {/* Dropdown Menu */}
           {isModelDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-[#E5E3DB] shadow-xl p-2 z-50 animate-in fade-in duration-150">
+            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-88 sm:w-104 rounded-2xl bg-white border border-[#E5E3DB] shadow-2xl p-2 z-50 animate-in fade-in duration-150">
               <div className="px-3 py-2 border-b border-[#F0EEE6] flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#78716C] uppercase tracking-wider">Select AI Model</span>
+                <span className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">Select AI Model</span>
                 <button
                   onClick={() => {
                     setIsModelDropdownOpen(false);
                     onOpenProvidersModal();
                   }}
-                  className="text-xs font-medium text-[#D97706] hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[#D97706] hover:underline cursor-pointer flex items-center gap-1"
                 >
-                  Configure APIs & Keys
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add / Manage Models</span>
                 </button>
               </div>
 
               <div className="max-h-96 overflow-y-auto divide-y divide-[#F5F3ED] py-1">
-                {/* Providers groups */}
-                {[
-                  { key: 'gemini', title: 'Google Gemini (Free Tier / Multimodal)' },
-                  { key: 'andromeda', title: 'Andromeda Intelligence (Extended Thinking)' },
-                  { key: 'ollama', title: 'Ollama (100% Free & Localhost)' },
-                  { key: 'lmstudio', title: 'LM Studio (100% Free & Offline)' },
-                  { key: 'groq', title: 'Groq & Cloud (Free Tier Available)' },
-                ].map((group) => {
-                  const groupModels = AI_MODELS.filter((m) =>
-                    group.key === 'groq' ? m.provider === 'groq' || m.provider === 'openrouter' : m.provider === group.key
-                  );
+                {modelGroups.map((group) => {
+                  const groupModels = allModels.filter(group.filter);
                   if (groupModels.length === 0) return null;
 
                   return (
                     <div key={group.key} className="py-1.5">
-                      <div className="px-3 py-1 text-[11px] font-semibold text-[#8C887B] uppercase tracking-wider">
+                      <div className="px-3 py-1 text-[11px] font-bold text-[#8C887B] uppercase tracking-wider">
                         {group.title}
                       </div>
                       <div className="space-y-0.5">
@@ -219,7 +238,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
                                   {getProviderIcon(model.provider)}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-sm font-medium text-[#1C1917] truncate">{model.name}</span>
                                     {model.badge && (
                                       <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#F2F0E8] text-[#57534E] font-medium">
@@ -241,11 +260,18 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
               </div>
 
               {/* Footer info in dropdown */}
-              <div className="mt-1 pt-2 border-t border-[#F0EEE6] px-3 py-1 flex items-center justify-between text-xs text-[#78716C]">
-                <span>All listed local and free tier models ready</span>
-                <span className="font-medium text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Free & Private
-                </span>
+              <div className="mt-1 pt-2 border-t border-[#F0EEE6] px-3 py-1.5 flex items-center justify-between text-xs text-[#78716C] bg-[#FAF9F5] rounded-xl">
+                <span>All cloud & local models enabled</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModelDropdownOpen(false);
+                    onOpenProvidersModal();
+                  }}
+                  className="font-semibold text-amber-700 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Sliders className="w-3.5 h-3.5" /> Configure Keys
+                </button>
               </div>
             </div>
           )}
@@ -256,11 +282,11 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           <button
             id="open-providers-modal-button"
             onClick={onOpenProvidersModal}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#44403C] hover:text-[#1C1917] hover:bg-[#F0EEE6] border border-transparent hover:border-[#E2E0D8] transition-all cursor-pointer"
-            title="Configure APIs, Ollama localhost, LM Studio, or keys"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#44403C] hover:text-[#1C1917] hover:bg-[#F0EEE6] border border-transparent hover:border-[#E2E0D8] transition-all cursor-pointer"
+            title="Configure API Keys & Add Custom Models"
           >
-            <Sliders className="w-4 h-4 text-[#78716C]" />
-            <span className="hidden md:inline">Providers</span>
+            <Sliders className="w-4 h-4 text-amber-600" />
+            <span className="hidden md:inline">Providers & Fleet</span>
           </button>
 
           {/* Google Auth / User Identity button */}

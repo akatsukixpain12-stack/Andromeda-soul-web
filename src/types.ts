@@ -83,7 +83,21 @@ export interface Conversation {
   projectId?: string;
 }
 
-export type AIProvider = 'gemini' | 'andromeda' | 'ollama' | 'lmstudio' | 'groq' | 'openrouter';
+export type AIProvider =
+  | 'gemini'
+  | 'andromeda'
+  | 'openai'
+  | 'anthropic'
+  | 'deepseek'
+  | 'groq'
+  | 'openrouter'
+  | 'mistral'
+  | 'together'
+  | 'cohere'
+  | 'perplexity'
+  | 'ollama'
+  | 'lmstudio'
+  | 'custom';
 
 export interface AIModelOption {
   id: string;
@@ -97,16 +111,26 @@ export interface AIModelOption {
   intelligence: string;
   supportsThinking?: boolean;
   isDefault?: boolean;
+  isCustom?: boolean;
+  customApiKey?: string;
+  customBaseUrl?: string;
+  customModelTag?: string;
+  createdAt?: number;
 }
 
 export type GeminiModel = AIModelOption;
 
 export interface ProviderConnectionStatus {
   gemini: boolean;
-  ollama: boolean;
-  lmstudio: boolean;
+  openai?: boolean;
+  anthropic?: boolean;
+  deepseek?: boolean;
   groq: boolean;
   openrouter: boolean;
+  mistral?: boolean;
+  ollama: boolean;
+  lmstudio: boolean;
+  custom?: boolean;
 }
 
 export interface UserSettings {
@@ -121,15 +145,40 @@ export interface UserSettings {
   googleClientId?: string;
   customRole?: string;
   geminiApiKey?: string;
-  // Free & Local provider configurations
-  ollamaHost?: string;
-  ollamaModel?: string;
-  lmStudioHost?: string;
-  lmStudioModel?: string;
+  
+  // Custom added AI models list
+  customModels?: AIModelOption[];
+
+  // Provider API configurations
+  openaiApiKey?: string;
+  openaiModel?: string;
+  anthropicApiKey?: string;
+  anthropicModel?: string;
+  deepseekApiKey?: string;
+  deepseekModel?: string;
+  mistralApiKey?: string;
+  mistralModel?: string;
   groqApiKey?: string;
   groqModel?: string;
   openRouterApiKey?: string;
   openRouterModel?: string;
+
+  // Local providers
+  ollamaHost?: string;
+  ollamaModel?: string;
+  lmStudioHost?: string;
+  lmStudioModel?: string;
+
+  // Custom generic OpenAI compatible provider
+  customApiBaseUrl?: string;
+  customApiKey?: string;
+  customApiModel?: string;
+
+  // Orchestrator tool controls
+  enableOrchestratorTools?: boolean;
+  enableWebSearch?: boolean;
+  enableCalculator?: boolean;
+  enableCodeExecution?: boolean;
 }
 
 export interface DiscordBotConfig {

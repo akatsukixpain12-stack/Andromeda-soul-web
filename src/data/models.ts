@@ -5,9 +5,9 @@ export const AI_MODELS: AIModelOption[] = [
   {
     id: 'andromeda-soul-1',
     name: 'Andromeda Soul 1',
-    provider: 'gemini',
+    provider: 'andromeda',
     providerLabel: 'Andromeda Frontier',
-    description: 'Sovereign intelligence with uncapped reasoning, Python AI generation, and Discord bot engineering mastery. Powered by Gemini Flash.',
+    description: 'Sovereign intelligence with uncapped reasoning, Python AI generation, and Discord bot engineering mastery.',
     badge: 'Flagship Free',
     isFree: true,
     speed: 'Ultra Fast',
@@ -15,13 +15,14 @@ export const AI_MODELS: AIModelOption[] = [
     supportsThinking: true,
     isDefault: true,
   },
+
   // --- GOOGLE GEMINI API (FREE TIER & STANDARD) ---
   {
     id: 'gemini-3.5-flash-search',
     name: 'Gemini 3.5 Flash (Search Grounding)',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
-    description: 'Enables real-time Google Search grounding to answer queries with up-to-date web information. Powered by Gemini 3.5.',
+    description: 'Enables real-time Google Search grounding to answer queries with up-to-date web information.',
     badge: 'Search Grounding',
     isFree: true,
     speed: 'Fast',
@@ -103,6 +104,148 @@ export const AI_MODELS: AIModelOption[] = [
     supportsThinking: false,
   },
 
+  // --- OPENAI MODELS ---
+  {
+    id: 'openai-gpt-4o',
+    name: 'GPT-4o (Omni)',
+    provider: 'openai',
+    providerLabel: 'OpenAI',
+    description: 'OpenAI’s flagship multimodal intelligence for complex multimodal reasoning, code, and vision.',
+    badge: 'OpenAI Flagship',
+    isFree: false,
+    speed: 'Ultra Fast',
+    intelligence: 'Frontier',
+    supportsThinking: false,
+  },
+  {
+    id: 'openai-gpt-4o-mini',
+    name: 'GPT-4o Mini',
+    provider: 'openai',
+    providerLabel: 'OpenAI',
+    description: 'Fast, lightweight, and cost-effective daily driver model for coding and conversations.',
+    badge: 'Fast & Efficient',
+    isFree: false,
+    speed: 'Instantaneous',
+    intelligence: 'High',
+    supportsThinking: false,
+  },
+  {
+    id: 'openai-o3-mini',
+    name: 'o3-mini (Reasoning)',
+    provider: 'openai',
+    providerLabel: 'OpenAI',
+    description: 'Specialized STEM, coding, and mathematical reasoning model with built-in chain of thought.',
+    badge: 'STEM Reasoning',
+    isFree: false,
+    speed: 'Balanced',
+    intelligence: 'Frontier Reasoning',
+    supportsThinking: true,
+  },
+
+  // --- ANTHROPIC CLAUDE MODELS ---
+  {
+    id: 'anthropic-claude-3-7-sonnet',
+    name: 'Claude 3.7 Sonnet',
+    provider: 'anthropic',
+    providerLabel: 'Anthropic',
+    description: 'Anthropic’s hybrid reasoning frontier model with extended thinking capabilities.',
+    badge: 'Extended Thinking',
+    isFree: false,
+    speed: 'Balanced',
+    intelligence: 'Frontier',
+    supportsThinking: true,
+  },
+  {
+    id: 'anthropic-claude-3-5-haiku',
+    name: 'Claude 3.5 Haiku',
+    provider: 'anthropic',
+    providerLabel: 'Anthropic',
+    description: 'Ultra-fast, articulate model for code generation and rapid query answering.',
+    badge: 'Ultra Fast',
+    isFree: false,
+    speed: 'Ultra Fast',
+    intelligence: 'High',
+    supportsThinking: false,
+  },
+
+  // --- DEEPSEEK DIRECT ---
+  {
+    id: 'deepseek-chat',
+    name: 'DeepSeek V3 (Chat)',
+    provider: 'deepseek',
+    providerLabel: 'DeepSeek Official',
+    description: 'Massive mixture-of-experts model offering exceptional general knowledge and programming skill.',
+    badge: '671B MoE',
+    isFree: false,
+    speed: 'Fast',
+    intelligence: 'Frontier',
+    supportsThinking: false,
+  },
+  {
+    id: 'deepseek-reasoner',
+    name: 'DeepSeek R1 (Reasoner)',
+    provider: 'deepseek',
+    providerLabel: 'DeepSeek Official',
+    description: 'Frontier open reasoning model with transparent chain-of-thought traces.',
+    badge: 'Open Reasoning',
+    isFree: false,
+    speed: 'Balanced',
+    intelligence: 'Frontier Reasoning',
+    supportsThinking: true,
+  },
+
+  // --- GROQ ULTRA-FAST LPUS ---
+  {
+    id: 'groq-llama-3.3-70b',
+    name: 'Llama 3.3 70B (Groq)',
+    provider: 'groq',
+    providerLabel: 'Groq Free Tier',
+    description: 'Blazing fast inference (300+ tokens/s) on Groq LPUs. Free tier available at console.groq.com.',
+    badge: '300+ tok/s Free',
+    isFree: true,
+    speed: 'Instantaneous',
+    intelligence: 'High',
+    supportsThinking: false,
+  },
+  {
+    id: 'groq-deepseek-r1-distill',
+    name: 'DeepSeek R1 Distill 70B (Groq)',
+    provider: 'groq',
+    providerLabel: 'Groq Cloud',
+    description: 'DeepSeek R1 reasoning architecture accelerated by Groq hardware.',
+    badge: 'Fast Reasoning',
+    isFree: true,
+    speed: 'Ultra Fast',
+    intelligence: 'Frontier Reasoning',
+    supportsThinking: true,
+  },
+
+  // --- OPENROUTER & MISTRAL ---
+  {
+    id: 'openrouter-deepseek-r1-free',
+    name: 'DeepSeek R1 (OpenRouter Free)',
+    provider: 'openrouter',
+    providerLabel: 'OpenRouter Free',
+    description: 'Free community tier on OpenRouter (deepseek/deepseek-r1:free). Zero subscription needed.',
+    badge: 'Free Model',
+    isFree: true,
+    speed: 'Fast',
+    intelligence: 'Frontier Reasoning',
+    supportsThinking: true,
+  },
+  {
+    id: 'mistral-large-latest',
+    name: 'Mistral Large',
+    provider: 'mistral',
+    providerLabel: 'Mistral AI',
+    description: 'Top-tier multilingual and analytical reasoning capabilities by Mistral AI.',
+    badge: 'Multilingual',
+    isFree: false,
+    speed: 'Fast',
+    intelligence: 'Frontier',
+    supportsThinking: false,
+  },
+
   // --- OLLAMA (100% FREE & LOCAL) ---
   {
     id: 'ollama-deepseek-r1',
@@ -166,30 +309,22 @@ export const AI_MODELS: AIModelOption[] = [
     intelligence: 'Custom Local Model',
     supportsThinking: true,
   },
-
-  // --- FREE CLOUD APIS ---
-  {
-    id: 'groq-llama-3.3-70b',
-    name: 'Llama 3.3 70B (Groq)',
-    provider: 'groq',
-    providerLabel: 'Groq Free Tier',
-    description: 'Blazing fast inference (300+ tokens/s) on Groq LPUs. Free tier available at console.groq.com.',
-    badge: '300+ tok/s Free',
-    isFree: true,
-    speed: 'Instantaneous',
-    intelligence: 'High',
-    supportsThinking: false,
-  },
-  {
-    id: 'openrouter-deepseek-r1-free',
-    name: 'DeepSeek R1 (OpenRouter Free)',
-    provider: 'openrouter',
-    providerLabel: 'OpenRouter Free',
-    description: 'Free community tier on OpenRouter (deepseek/deepseek-r1:free). Zero subscription needed.',
-    badge: 'Free Model',
-    isFree: true,
-    speed: 'Fast',
-    intelligence: 'Frontier Reasoning',
-    supportsThinking: true,
-  },
 ];
+
+/**
+ * Combine builtin models with user-defined custom models
+ */
+export function getAllModels(customModels?: AIModelOption[]): AIModelOption[] {
+  if (!customModels || customModels.length === 0) {
+    return AI_MODELS;
+  }
+  return [...AI_MODELS, ...customModels];
+}
+
+/**
+ * Retrieve a model by ID (checking both built-in and custom models)
+ */
+export function findModelById(modelId: string, customModels?: AIModelOption[]): AIModelOption {
+  const all = getAllModels(customModels);
+  return all.find((m) => m.id === modelId) || all[0];
+}

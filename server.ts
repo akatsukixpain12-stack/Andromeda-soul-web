@@ -907,6 +907,102 @@ npm start
     }
   });
 
+  // Universal Provider Models Fetch Proxy (Handles CORS & fetches dynamic models from Ollama, LM Studio, OpenAI, OpenRouter, Groq, etc.)
+  app.post('/api/proxy/models', async (req: Request, res: Response) => {
+    const { endpoint, apiKey, provider } = req.body;
+    try {
+      let targetUrl = endpoint;
+      if (!targetUrl) {
+        if (provider === 'ollama') targetUrl = 'http://localhost:11434/api/tags';
+        else if (provider === 'lmstudio') targetUrl = 'http://localhost:1234/v1/models';
+        else if (provider === 'openai') targetUrl = 'https://api.openai.com/v1/models';
+        else if (provider === 'openrouter') targetUrl = 'https://openrouter.ai/api/v1/models';
+        else if (provider === 'groq') targetUrl = 'https://api.groq.com/openai/v1/models';
+        else if (provider === 'mistral') targetUrl = 'https://api.mistral.ai/v1/models';
+      }
+
+      if (!targetUrl) {
+        return res.status(400).json({ success: false, error: 'Endpoint or recognized provider required.' });
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+      }
+
+      const response = await fetch(targetUrl, { headers });
+      if (!response.ok) {
+        return res.status(response.status).json({ success: false, error: `Upstream error: ${response.statusText}` });
+      }
+
+      const data = await response.json();
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to query provider models' });
+    }
+  });
+
+  // Universal Provider Chat Completion Proxy (Stream proxy with CORS bypass)
+  app.post('/api/proxy/chat', async (req: Request, res: Response) => {
+    const { endpoint, apiKey, body, isAnthropic } = req.body;
+
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Endpoint is required.' });
+    }
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (isAnthropic) {
+        headers['x-api-key'] = apiKey || '';
+        headers['anthropic-version'] = '2023-06-01';
+      } else if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+      }
+
+      const upstream = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!upstream.ok) {
+        const errorText = await upstream.text();
+        return res.status(upstream.status).json({ error: errorText || upstream.statusText });
+      }
+
+      // If streaming response
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      if (!upstream.body) {
+        return res.end();
+      }
+
+      const reader = upstream.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        res.write(chunk);
+      }
+
+      res.end();
+    } catch (err: any) {
+      console.error('[Proxy Chat Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Upstream provider connection error' });
+      } else {
+        res.end();
+      }
+    }
+  });
+
   // Smart Secret Scanner Endpoint
   app.post('/api/secret-scan', (req: Request, res: Response) => {
     const { files = {} } = req.body;
@@ -1516,6 +1612,88 @@ npm start
     }
 
     res.status(400).json({ success: false, error: 'Command or signal code is required' });
+  });
+
+  // Google Cloud Terminal & Cloud Shell Diagnostics API
+  app.get('/api/terminal/gcloud', async (req: Request, res: Response) => {
+    try {
+      const gcloudStatus = {
+        available: false,
+        version: '',
+        project: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'andromeda-studio',
+        region: process.env.GOOGLE_CLOUD_REGION || 'asia-southeast1',
+        cloudRunService: process.env.K_SERVICE || 'andromeda-orchestrator',
+        isCloudRun: !!process.env.K_SERVICE,
+        containerTime: new Date().toISOString(),
+        nodeVersion: process.version,
+        pythonAvailable: false,
+      };
+
+      exec('python3 --version', (pyErr, pyOut) => {
+        if (!pyErr) {
+          gcloudStatus.pythonAvailable = true;
+        }
+
+        exec('gcloud --version', (gcErr, gcOut) => {
+          if (!gcErr && gcOut) {
+            gcloudStatus.available = true;
+            gcloudStatus.version = gcOut.split('\n')[0];
+          }
+          res.json({ success: true, cloud: gcloudStatus });
+        });
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Deterministic Code & Command Execution API (Used by Andromeda Orchestrator & Studio)
+  app.post('/api/terminal/execute', async (req: Request, res: Response) => {
+    const { command, timeoutMs = 15000, cwd } = req.body;
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ success: false, error: 'Command string is required.' });
+    }
+
+    const executionCwd = cwd || terminalCwd || process.cwd();
+    const startTime = Date.now();
+
+    // Security boundary: Block destructive system root deletions
+    const forbiddenPatterns = [
+      /rm\s+-rf\s+\/($|\s)/,
+      /mkfs/,
+      /:(){ :|:& };:/,
+      /dd\s+if=.*of=\/dev\/[s|h|v]d/
+    ];
+
+    for (const pattern of forbiddenPatterns) {
+      if (pattern.test(command)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Operation rejected by Andromeda Security Sandbox: Destructive system command detected.',
+          code: 126
+        });
+      }
+    }
+
+    exec(command, { cwd: executionCwd, timeout: timeoutMs, maxBuffer: 1024 * 1024 * 2 }, (error, stdout, stderr) => {
+      const durationMs = Date.now() - startTime;
+      
+      // Also broadcast to the active Xterm if running
+      broadcastTerminal({
+        type: 'output',
+        content: `\n\x1b[90m[$] ${command}\x1b[0m\n${stdout}${stderr ? `\x1b[31m${stderr}\x1b[0m` : ''}`
+      });
+
+      res.json({
+        success: !error,
+        stdout: stdout || '',
+        stderr: stderr || '',
+        exitCode: error ? (error.code ?? 1) : 0,
+        timedOut: error?.killed ?? false,
+        durationMs,
+        cwd: executionCwd
+      });
+    });
   });
 
   // Legacy fallback endpoint to prevent any build/app compile warnings

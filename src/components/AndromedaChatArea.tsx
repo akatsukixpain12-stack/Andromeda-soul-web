@@ -23,7 +23,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { ChatMessage, ChatAttachment, AIModelOption, UserProfile } from '../types';
-import { AI_MODELS } from '../data/models';
+import { AI_MODELS, findModelById } from '../data/models';
 import { UserAvatar } from './UserAvatar';
 
 interface AndromedaChatAreaProps {
@@ -42,6 +42,7 @@ interface AndromedaChatAreaProps {
   currentUser?: UserProfile | null;
   onEditMessage?: (content: string) => void;
   onOpenProvidersModal: () => void;
+  customModels?: AIModelOption[];
 }
 
 export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
@@ -57,6 +58,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   userName = 'User',
   currentUser,
   onOpenProvidersModal,
+  customModels = [],
 }) => {
   const [inputText, setInputText] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -70,7 +72,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentModel = AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[0];
+  const currentModel = findModelById(selectedModelId, customModels);
 
   // Auto-scroll as text streams
   useEffect(() => {
@@ -208,45 +210,45 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-53px)] overflow-hidden bg-[#FAF9F5]">
+    <div className="flex-1 flex flex-col h-[calc(100dvh-53px)] sm:h-[calc(100dvh-57px)] w-full max-w-full overflow-hidden bg-[#FAF9F5]">
       {/* Scrollable conversation thread */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex-1 overflow-y-auto px-2.5 sm:px-4 py-4 sm:py-6 overflow-x-hidden">
+        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 w-full">
           {/* Empty State: Andromeda Sovereign Studio greeting */}
           {messages.length === 0 && !isStreaming && (
-            <div className="pt-8 pb-12 text-center max-w-xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <div className="pt-4 sm:pt-8 pb-8 sm:pb-12 text-center max-w-xl mx-auto space-y-4 sm:space-y-6 px-2 animate-in fade-in duration-300">
               {/* Andromeda Brand Glyph */}
               <div className="flex items-center justify-center gap-2">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-600 via-orange-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-lg border border-white/20">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-amber-600 via-orange-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg sm:text-xl shadow-lg border border-white/20">
                   A
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl font-semibold text-[#1C1917] tracking-tight font-display">
+              <div className="space-y-1.5 sm:space-y-2">
+                <h1 className="text-xl sm:text-3xl font-semibold text-[#1C1917] tracking-tight font-display">
                   {getGreeting()}, {userName}
                 </h1>
-                <p className="text-sm text-[#78716C] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#78716C] leading-relaxed">
                   Welcome to <strong>Andromeda Sovereign AI Studio</strong>. Equipped with{' '}
-                  <strong>Andromeda Soul 1</strong> (Frontier Uncapped), Google Gemini 2.5 Flash, Andromeda reasoning, and 100% free local models with Ollama & LM Studio.
+                  <strong>Andromeda Soul 1</strong> (Frontier Uncapped), Google Gemini, Andromeda reasoning, and 100% free local models with Ollama & LM Studio.
                 </p>
               </div>
 
               {/* Free Provider Badges */}
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900 shadow-2xs">
                   <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                   Andromeda Soul 1 (Uncapped)
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
                   <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  Gemini 2.5 Flash (Free Tier)
+                  Gemini 3.6 Flash
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
                   <Cpu className="w-3.5 h-3.5 text-emerald-600" />
                   Ollama (100% Free Local)
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
                   <Brain className="w-3.5 h-3.5 text-amber-600" />
                   Extended Thinking
                 </span>

@@ -15,6 +15,21 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  html {
+    overflow-x: hidden;
+    height: 100%;
+  }
+
+  /* Safe word-breaking to prevent horizontal text blowouts */
+  p, span, div, li, td, th {
+    overflow-wrap: break-word;
   }
 
   h1, h2, h3, h4, h5, h6, .font-display {

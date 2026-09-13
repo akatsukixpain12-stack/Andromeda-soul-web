@@ -9,7 +9,7 @@ import { ConsoleModal } from './components/ConsoleModal';
 import { Conversation, ChatMessage, ChatAttachment, UserSettings, UserProfile } from './types';
 import { DEFAULT_SETTINGS } from './data/defaultSettings';
 import { streamMultiProviderChat } from './lib/aiClient';
-import { AI_MODELS } from './data/models';
+import { AI_MODELS, findModelById } from './data/models';
 import {
   auth,
   dbSaveConversation,
@@ -455,7 +455,7 @@ export function App() {
     abortControllerRef.current = controller;
 
     const historyForAi = currentConv ? [...currentConv.messages, userMessage] : [userMessage];
-    const modelMeta = AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[0];
+    const modelMeta = findModelById(selectedModelId, settings.customModels);
 
     try {
       const finalAccumulated = await streamMultiProviderChat({
@@ -565,7 +565,7 @@ export function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#FAF9F5] text-[#1C1917] overflow-hidden select-text">
+    <div className="flex h-[100dvh] w-full max-w-full bg-[#FAF9F5] text-[#1C1917] overflow-hidden select-text">
       {/* 1. Left Sidebar (Collapsible drawer with chats, search, and free provider widgets) */}
       <AndromedaSidebar
         conversations={conversations}
@@ -587,7 +587,7 @@ export function App() {
       />
 
       {/* 2. Main Studio Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-hidden">
         {/* Top Navbar: Brand, Title, Model Dropdown (Gemini, Claude, Ollama, LM Studio), Actions */}
         <AndromedaNavbar
           isSidebarOpen={isSidebarOpen}
@@ -600,6 +600,7 @@ export function App() {
           currentUser={currentUser}
           activeConversationTitle={activeConversation?.title}
           onRenameActiveConversation={(title) => handleRenameConversation(activeConversationId, title)}
+          customModels={settings.customModels}
         />
 
         {/* Central Chat Thread with Thinking Accordions and Floating Claude Input Pill */}
@@ -624,6 +625,7 @@ export function App() {
           userName={currentUser?.name || settings.userName || 'User'}
           currentUser={currentUser}
           onOpenProvidersModal={() => setIsProvidersModalOpen(true)}
+          customModels={settings.customModels}
         />
       </div>
 
