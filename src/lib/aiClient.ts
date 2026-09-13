@@ -509,7 +509,7 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
       body: JSON.stringify({
         prompt,
         history: history.slice(-10),
-        modelId: modelId.includes('gemini') ? modelId : 'gemini-3.8-flash',
+        modelId: (modelId === 'andromeda-soul-1' || modelId.includes('gemini')) ? modelId : 'gemini-3.8-flash',
         systemInstruction: effectiveSystemInstruction,
         enableThinking: effectiveThinking,
         attachments,
@@ -541,6 +541,9 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
               const dataStr = line.slice(6);
               try {
                 const parsed = JSON.parse(dataStr);
+                if (currentEvent === 'error' && parsed.message) {
+                  throw new Error(parsed.message);
+                }
                 if ((currentEvent === 'token' || currentEvent === 'chunk') && parsed.text) {
                   accumulated += parsed.text;
                   onToken(parsed.text);
@@ -549,8 +552,12 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
                 } else if (currentEvent === 'done') {
                   return accumulated;
                 }
-              } catch {
-                // partial chunk
+              } catch (e: any) {
+                // If it's our thrown custom error, bubble it up
+                if (e.message && currentEvent === 'error') {
+                  throw e;
+                }
+                // otherwise it is a partial JSON chunk error, ignore
               }
             }
           }
@@ -560,9 +567,23 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
           return accumulated;
         }
       }
+    } else if (!res.ok) {
+      // If server responded with non-200, try to get JSON or text error
+      try {
+        const errJson = await res.json();
+        if (errJson.error) {
+          throw new Error(errJson.error);
+        }
+      } catch {
+        throw new Error(`HTTP Error ${res.status} ${res.statusText}`);
+      }
     }
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
+    // Propagate backend errors instead of silently swallowing and failing to fallback
+    if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('network')) {
+      throw err;
+    }
   }
 
   // 2. Client-side Gemini SDK fallback

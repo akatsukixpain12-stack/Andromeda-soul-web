@@ -19,7 +19,7 @@ import { AIModelOption, ProviderConnectionStatus, UserProfile } from '../types';
 import { AI_MODELS } from '../data/models';
 import { UserAvatar } from './UserAvatar';
 
-interface ClaudeNavbarProps {
+interface AndromedaNavbarProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNewChat: () => void;
@@ -33,7 +33,7 @@ interface ClaudeNavbarProps {
   connectionStatus?: ProviderConnectionStatus;
 }
 
-export const ClaudeNavbar: React.FC<ClaudeNavbarProps> = ({
+export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   onNewChat,

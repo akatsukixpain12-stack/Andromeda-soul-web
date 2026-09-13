@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { UserAvatar } from './UserAvatar';
+import { auth, googleAuthProvider } from '../lib/firebase';
+import { signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -90,9 +92,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setLoadingProvider('google');
-    window.location.href = '/api/auth/google/start';
+    try {
+      const result = await signInWithPopup(auth, googleAuthProvider);
+      const user = result.user;
+      const profile: UserProfile = {
+        id: user.uid,
+        email: user.email || '',
+        name: user.displayName || 'Andromeda Creator',
+        avatar: user.photoURL || '',
+        provider: 'google',
+        signedInAt: Date.now(),
+      };
+
+      // Sync profile with server session (best effort)
+      try {
+        await fetch('/api/auth/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        });
+      } catch {
+        // ignore
+      }
+
+      setAuthSuccessNotice(true);
+      setTimeout(() => setAuthSuccessNotice(false), 3000);
+      notifyUserChange(profile);
+      onClose();
+    } catch (error) {
+      console.error('Firebase Google Sign-In Error:', error);
+    } finally {
+      setLoadingProvider(null);
+    }
   };
 
   const handleGuestSignIn = async () => {
@@ -126,6 +159,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSignOut = async () => {
     try {
+      await firebaseSignOut(auth);
       await fetch('/api/auth/profile', {
         method: 'DELETE',
       });
@@ -133,9 +167,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       // ignore
     }
     if (onLogout) onLogout();
-    if (onLoginSuccess) {
-      // clear
-    }
     onClose();
     window.location.reload();
   };

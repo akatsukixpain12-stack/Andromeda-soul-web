@@ -17,6 +17,18 @@ export const AI_MODELS: AIModelOption[] = [
   },
   // --- GOOGLE GEMINI API (FREE TIER & STANDARD) ---
   {
+    id: 'gemini-3.5-flash-search',
+    name: 'Gemini 3.5 Flash (Search Grounding)',
+    provider: 'gemini',
+    providerLabel: 'Google Gemini',
+    description: 'Enables real-time Google Search grounding to answer queries with up-to-date web information. Powered by Gemini 3.5.',
+    badge: 'Search Grounding',
+    isFree: true,
+    speed: 'Fast',
+    intelligence: 'High',
+    supportsThinking: false,
+  },
+  {
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'gemini',

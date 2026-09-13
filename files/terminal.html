@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terminal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/css/xterm.min.css" />
+<style>
+  html,body{
+    margin:0; height:100%;
+    background:#05070a;
+    display:flex; align-items:center; justify-content:center;
+    font-family: -apple-system, sans-serif;
+  }
+  .term-window{
+    width:min(900px,94vw);
+    height:min(580px,84vh);
+    background:#0d1117;
+    border:1px solid #1e2530;
+    border-radius:10px;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.7);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .term-bar{
+    height:38px; background:#0a0e14; border-bottom:1px solid #1e2530;
+    display:flex; align-items:center; padding:0 14px; gap:8px; flex-shrink:0;
+  }
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .term-title{flex:1;text-align:center;color:#5b6472;font-size:12px;margin-right:54px;}
+  .term-container{flex:1; padding:8px;}
+  #terminal{width:100%; height:100%;}
+  .status{
+    position:absolute; top:8px; right:16px; font-size:11px; color:#5b6472;
+  }
+</style>
+</head>
+<body>
+
+<div class="term-window">
+  <div class="term-bar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <div class="term-title" id="statusLabel">connecting…</div>
+  </div>
+  <div class="term-container"><div id="terminal"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/addon-fit/addon-fit.min.js"></script>
+<script>
+(function(){
+  // ---- Configure these two for your deployment ----
+  const WS_URL = "wss://YOUR-BACKEND-HOST/"; // e.g. wss://my-terminal.fly.dev
+  const AUTH_TOKEN = "PROMPT_USER_OR_INJECT_SERVER_SIDE"; // don't hardcode secrets in shipped JS in real use
+  // ---------------------------------------------------
+
+  const statusLabel = document.getElementById('statusLabel');
+  const term = new Terminal({
+    fontFamily: '"SFMono-Regular","JetBrains Mono",Consolas,monospace',
+    fontSize: 13.5,
+    theme: {
+      background: '#0d1117',
+      foreground: '#c9d1d9',
+      cursor: '#5ee6c0',
+    },
+    cursorBlink: true
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('terminal'));
+  fitAddon.fit();
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  const ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    statusLabel.textContent = 'authenticating…';
+    ws.send(JSON.stringify({ type: 'auth', token: AUTH_TOKEN }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'ready') {
+      statusLabel.textContent = 'connected';
+      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+    } else if (msg.type === 'output') {
+      term.write(msg.data);
+    } else if (msg.type === 'error') {
+      statusLabel.textContent = 'error';
+      term.write('\r\n\x1b[31m' + msg.data + '\x1b[0m');
+    } else if (msg.type === 'exit') {
+      statusLabel.textContent = 'session ended';
+      term.write('\r\n\x1b[33m[session ended]\x1b[0m\r\n');
+    }
+  };
+
+  ws.onclose = () => { statusLabel.textContent = 'disconnected'; };
+  ws.onerror = () => { statusLabel.textContent = 'connection error'; };
+
+  term.onData((data) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'input', data }));
+    }
+  });
+
+  term.onResize(({ cols, rows }) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+    }
+  });
+})();
+</script>
+</body>
+</html>

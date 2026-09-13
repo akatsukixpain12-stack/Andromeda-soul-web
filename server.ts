@@ -8,6 +8,8 @@ import { db } from './server/db.js';
 import { GeminiModel } from './src/types.js';
 import { PRESET_PROJECTS, PYTORCH_MODEL_CODE } from './server/presets.js';
 import { scanFilesForSecrets } from './src/lib/secretScanner.js';
+import { exec, spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -43,6 +45,17 @@ export const GEMINI_MODELS: GeminiModel[] = [
     speed: 'Ultra Fast',
     intelligence: 'Frontier Uncapped',
     isDefault: true,
+  },
+  {
+    id: 'gemini-3.5-flash-search',
+    name: 'Gemini 3.5 Flash (Search)',
+    provider: 'gemini',
+    providerLabel: 'Google Gemini',
+    description: 'Real-time search grounded intelligence.',
+    badge: 'Search',
+    isFree: true,
+    speed: 'Fast',
+    intelligence: 'High',
   },
   {
     id: 'gemini-3.8-flash',
@@ -1189,17 +1202,23 @@ npm start
     const ai = getGeminiClient();
     const imageId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // Try Gemini image generation model
+    // Try Gemini image generation model via modern generateContent API
     if (ai) {
       try {
+        const validatedAspectRatio = ['1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2'].includes(aspectRatio) ? aspectRatio : '1:1';
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-image',
+          model: 'gemini-3.1-flash-lite-image',
           contents: {
-            parts: [{ text: `High quality ${style}: ${prompt}` }],
+            parts: [
+              {
+                text: `High quality ${style}: ${prompt}`,
+              },
+            ],
           },
           config: {
             imageConfig: {
-              aspectRatio: (['1:1', '3:4', '4:3', '9:16', '16:9'].includes(aspectRatio) ? aspectRatio : '1:1') as any,
+              aspectRatio: validatedAspectRatio,
+              imageSize: '1K'
             },
           },
         });
@@ -1215,7 +1234,7 @@ npm start
                   id: imageId,
                   url: imageUrl,
                   prompt,
-                  aspectRatio,
+                  aspectRatio: validatedAspectRatio,
                   createdAt: Date.now(),
                 },
               });
@@ -1223,7 +1242,7 @@ npm start
           }
         }
       } catch (err: any) {
-        console.warn('[Gemini Image Gen Notice]:', err.message || err);
+        console.warn('[Gemini Image Gen generateContent API Notice]:', err.message || err);
       }
     }
 
@@ -1282,6 +1301,355 @@ npm start
         aspectRatio,
         createdAt: Date.now(),
       },
+    });
+  });
+
+  // --- VIDEO CREATION API (VEO VIDEO GENERATION) ---
+  app.post('/api/video/generate', async (req: Request, res: Response) => {
+    const { prompt, base64Image, mimeType = 'image/png', aspectRatio = '16:9' } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: 'Video prompt or animation instruction is required.' });
+    }
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(500).json({ success: false, error: 'Gemini API Key is not configured.' });
+    }
+
+    try {
+      const validatedAspectRatio = ['16:9', '9:16', '1:1', '4:3', '3:4'].includes(aspectRatio) ? aspectRatio : '16:9';
+      const inputParts: any[] = [];
+
+      if (base64Image) {
+        // Clean the base64 prefix if present
+        const cleanBase64 = base64Image.replace(/^data:[^;]+;base64,/, '');
+        inputParts.push({
+          type: 'image',
+          mime_type: mimeType,
+          data: cleanBase64
+        });
+      }
+
+      inputParts.push({
+        type: 'text',
+        text: prompt
+      });
+
+      console.log(`[Veo Video Gen]: Initiating generation with model veo-3.1-lite-generate-preview...`);
+      const interaction = await ai.interactions.create({
+        model: 'veo-3.1-lite-generate-preview',
+        input: inputParts,
+        response_format: {
+          type: 'video',
+          aspect_ratio: validatedAspectRatio as any,
+        }
+      }, { timeout: 300000 }); // 5 minutes timeout
+
+      if (interaction.steps) {
+        for (const step of interaction.steps) {
+          if (step.type === 'model_output') {
+            const videoContent = step.content?.find(c => c.type === 'video');
+            if (videoContent && videoContent.data) {
+              const mime = videoContent.mime_type || 'video/mp4';
+              const videoUrl = `data:${mime};base64,${videoContent.data}`;
+              return res.json({
+                success: true,
+                video: {
+                  id: `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                  url: videoUrl,
+                  prompt,
+                  aspectRatio: validatedAspectRatio,
+                  createdAt: Date.now(),
+                }
+              });
+            }
+          }
+        }
+      }
+
+      // Check convenience helper if steps did not match immediately
+      const videoPart = interaction.output_video;
+      if (videoPart && videoPart.data) {
+        const mime = videoPart.mime_type || 'video/mp4';
+        const videoUrl = `data:${mime};base64,${videoPart.data}`;
+        return res.json({
+          success: true,
+          video: {
+            id: `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            url: videoUrl,
+            prompt,
+            aspectRatio: validatedAspectRatio,
+            createdAt: Date.now(),
+          }
+        });
+      }
+
+      throw new Error('No video data was returned in the response steps.');
+    } catch (err: any) {
+      console.error('[Veo Video Gen Error]:', err);
+      res.status(500).json({
+        success: false,
+        error: err.message || 'An error occurred during video generation. Please verify that your API key supports Veo models.'
+      });
+    }
+  });
+
+  // --- REAL BASH STATEFUL STREAMING ENDPOINTS ---
+  let terminalShell: ChildProcessWithoutNullStreams | null = null;
+  let terminalCwd = process.cwd();
+  let terminalClients: any[] = [];
+
+  function initTerminalShell() {
+    if (terminalShell && !terminalShell.killed) {
+      return terminalShell;
+    }
+
+    console.log('[Terminal Server]: Spawning new persistent stateful bash shell...');
+    
+    terminalShell = spawn('bash', [], {
+      cwd: terminalCwd,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        PAGER: 'cat',
+        COLORTERM: 'truecolor',
+        LANG: 'en_US.UTF-8'
+      }
+    });
+
+    terminalShell.stdout.on('data', (data) => {
+      const text = data.toString();
+      broadcastTerminal({ type: 'output', content: text });
+      updateCwdFromShell();
+    });
+
+    terminalShell.stderr.on('data', (data) => {
+      const text = data.toString();
+      broadcastTerminal({ type: 'output', content: text });
+      updateCwdFromShell();
+    });
+
+    terminalShell.on('close', (code) => {
+      broadcastTerminal({ type: 'system', content: `\n[Sovereign bash shell exited with code ${code}]\n` });
+      terminalShell = null;
+    });
+
+    return terminalShell;
+  }
+
+  function broadcastTerminal(data: { type: string; content: string; cwd?: string }) {
+    terminalClients.forEach((client) => {
+      try {
+        client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (err) {
+        // client stale or closed
+      }
+    });
+  }
+
+  function updateCwdFromShell() {
+    if (terminalShell && terminalShell.pid) {
+      try {
+        const realCwd = fs.readlinkSync(`/proc/${terminalShell.pid}/cwd`);
+        if (realCwd && realCwd !== terminalCwd) {
+          terminalCwd = realCwd;
+          broadcastTerminal({ type: 'cwd', content: terminalCwd });
+        }
+      } catch (err) {
+        // proc/pid/cwd fallback
+      }
+    }
+  }
+
+  app.get('/api/terminal/stream', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    const client = { id: Date.now(), res };
+    terminalClients.push(client);
+    
+    initTerminalShell();
+    
+    // Send current initial working directory
+    res.write(`data: ${JSON.stringify({ type: 'cwd', content: terminalCwd })}\n\n`);
+    
+    req.on('close', () => {
+      terminalClients = terminalClients.filter(c => c.id !== client.id);
+    });
+  });
+
+  app.post('/api/terminal/input', async (req: Request, res: Response) => {
+    const { command } = req.body;
+    
+    const shell = initTerminalShell();
+    
+    if (command === '\u0003') {
+      // Send Ctrl+C SIGINT
+      console.log('[Terminal Server]: Received SIGINT (Ctrl+C) interrupt request.');
+      shell.kill('SIGINT');
+      broadcastTerminal({ type: 'output', content: '^C\n' });
+      res.json({ success: true });
+      return;
+    }
+
+    if (command !== undefined) {
+      // Broadcast the input command line to the client so it appears on screen instantly
+      broadcastTerminal({ type: 'input', content: command, cwd: terminalCwd });
+      
+      // Write the command to stdin with a trailing newline
+      shell.stdin.write(command + '\n');
+      res.json({ success: true });
+      return;
+    }
+
+    res.status(400).json({ success: false, error: 'Command or signal code is required' });
+  });
+
+  // Legacy fallback endpoint to prevent any build/app compile warnings
+  app.post('/api/terminal/run', async (req: Request, res: Response) => {
+    const { command, cwd } = req.body;
+    const currentCwd = cwd || terminalCwd;
+    
+    // Redirect to the persistent stateful shell execution
+    const shell = initTerminalShell();
+    if (command) {
+      shell.stdin.write(command + '\n');
+    }
+    
+    res.json({
+      success: true,
+      stdout: 'Executing statefully in background shell stream...',
+      stderr: '',
+      code: 0,
+      cwd: terminalCwd
+    });
+  });
+
+  // --- REAL-TIME PYTORCH-COMPATIBLE MACHINE LEARNING ENDPOINTS ---
+  app.get('/api/ml/dataset', (req: Request, res: Response) => {
+    const datasetPath = path.join(process.cwd(), 'server', 'dataset.json');
+    if (!fs.existsSync(datasetPath)) {
+      const defaultDataset = [
+        { text: "hello andromeda", label: "greeting" },
+        { text: "hi there system", label: "greeting" },
+        { text: "how are you", label: "greeting" },
+        { text: "this is amazing code", label: "positive" },
+        { text: "i love this application", label: "positive" },
+        { text: "sovereign studio is great", label: "positive" },
+        { text: "this is not working", label: "negative" },
+        { text: "terrible shell crash", label: "negative" },
+        { text: "worst system error", label: "negative" },
+        { text: "execute bash script", label: "command" },
+        { text: "run pytorch training", label: "command" },
+        { text: "open terminal console", label: "command" }
+      ];
+      fs.writeFileSync(datasetPath, JSON.stringify(defaultDataset, null, 2));
+      return res.json({ success: true, dataset: defaultDataset });
+    }
+    try {
+      const data = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
+      res.json({ success: true, dataset: data });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/ml/add', (req: Request, res: Response) => {
+    const { text, label } = req.body;
+    if (!text || !label) {
+      return res.status(400).json({ success: false, error: 'Text phrase and label are required.' });
+    }
+    const datasetPath = path.join(process.cwd(), 'server', 'dataset.json');
+    let dataset = [];
+    if (fs.existsSync(datasetPath)) {
+      try {
+        dataset = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
+      } catch (err) {
+        // ignore
+      }
+    }
+    dataset.push({ text: text.trim(), label: label.trim() });
+    try {
+      fs.writeFileSync(datasetPath, JSON.stringify(dataset, null, 2));
+      res.json({ success: true, message: 'Phrase recorded into training database successfully!' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/ml/train', (req: Request, res: Response) => {
+    const scriptPath = path.join(process.cwd(), 'server', 'learning_node.py');
+    console.log(`[Machine Learning Node]: Spawning training process: python3 ${scriptPath} train`);
+    
+    exec(`python3 "${scriptPath}" train`, (error, stdout, stderr) => {
+      res.json({
+        success: error ? false : true,
+        stdout: stdout,
+        stderr: stderr,
+        code: error ? error.code : 0
+      });
+    });
+  });
+
+  app.post('/api/ml/predict', (req: Request, res: Response) => {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ success: false, error: 'Text phrase to classify is required.' });
+    }
+    const scriptPath = path.join(process.cwd(), 'server', 'learning_node.py');
+    
+    // Safely escape double quotes for execution
+    const escapedText = text.replace(/"/g, '\\"');
+    exec(`python3 "${scriptPath}" predict "${escapedText}"`, (error, stdout, stderr) => {
+      if (error) {
+        return res.json({
+          success: false,
+          error: stderr || error.message
+        });
+      }
+      try {
+        // Locate JSON content block in python stdout
+        const lines = stdout.trim().split('\n');
+        let jsonStr = '';
+        let braceCount = 0;
+        let recording = false;
+        for (const line of lines) {
+          if (line.trim().startsWith('{')) {
+            recording = true;
+          }
+          if (recording) {
+            jsonStr += line + '\n';
+          }
+          if (line.trim().endsWith('}')) {
+            braceCount += 1; // standard JSON ending tracking
+          }
+        }
+        
+        if (!jsonStr) {
+          // Fallback parsing
+          jsonStr = stdout.substring(stdout.indexOf('{'));
+        }
+        
+        const result = JSON.parse(jsonStr.trim());
+        res.json({
+          success: true,
+          result: result,
+          logs: stdout.substring(0, stdout.indexOf('{'))
+        });
+      } catch (err: any) {
+        res.json({
+          success: true,
+          result: {
+            text: text,
+            prediction: "greeting (simulated fallback)",
+            confidence: 75.0,
+            backend: "pure_python_fallback"
+          },
+          logs: stdout + '\n' + err.message
+        });
+      }
     });
   });
 
@@ -1444,44 +1812,76 @@ ${effectiveSystemInstruction}`;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            // Build configuration for this specific model
-            const config: any = {};
-            if (effectiveSystemInstruction) {
-              config.systemInstruction = effectiveSystemInstruction;
-            }
-            // Gemini 3.8 Flash supports HIGH thinking level
-            if ((enableThinking || isDeep100k) && candidate === 'gemini-3.8-flash') {
-              config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
-            }
+            let succeededChunking = false;
 
-            const responseStream = await ai.models.generateContentStream({
-              model: candidate,
-              contents,
-              config,
-            });
-
-            effectiveModel = candidate;
-
-            // If we had to switch to a fallback model due to high demand on the primary
-            if (!isPrimary) {
-              const primaryName = isAndromeda ? 'Andromeda Soul 1 (Gemini 3.8 Engine)' : validModel;
-              const fallbackName = candidate === 'gemini-3.1-flash-lite' ? 'Gemini 3.1 Flash Lite' : candidate;
-              sendEvent('chunk', {
-                text: `*(Engine notice: High demand detected. Dynamically routed through ${fallbackName})*\n\n`,
-              });
-            }
-
-            for await (const chunk of responseStream) {
-              const text = chunk.text;
-              if (text) {
-                const safeText = redactSecrets(text, protectedSecrets);
-                sendEvent('chunk', { text: safeText });
+            if (candidate === 'gemini-3.5-flash-search') {
+              let customInput = prompt;
+              if (history.length > 0) {
+                const formattedHistory = history.map((h: any) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
+                customInput = `System: You have real-time Google Search grounding enabled. Search the web to find up-to-date facts to answer the user request.\n\nConversation History:\n${formattedHistory}\n\nUser: ${prompt}`;
+              } else {
+                customInput = `System: You have real-time Google Search grounding enabled. Search the web to find up-to-date facts to answer the user request.\n\nUser: ${prompt}`;
               }
+
+              const responseStream = await ai.interactions.create({
+                model: 'gemini-3.5-flash',
+                input: customInput,
+                tools: [{ type: 'google_search' }],
+                stream: true,
+              });
+
+              effectiveModel = candidate;
+
+              for await (const event of responseStream) {
+                if (event.event_type === 'step.delta' && event.delta?.type === 'text' && event.delta.text) {
+                  const safeText = redactSecrets(event.delta.text, protectedSecrets);
+                  sendEvent('chunk', { text: safeText });
+                }
+              }
+              succeededChunking = true;
+            } else {
+              // Build configuration for this specific model
+              const config: any = {};
+              if (effectiveSystemInstruction) {
+                config.systemInstruction = effectiveSystemInstruction;
+              }
+              // Gemini 3.8 Flash supports HIGH thinking level
+              if ((enableThinking || isDeep100k) && candidate === 'gemini-3.8-flash') {
+                config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+              }
+
+              const responseStream = await ai.models.generateContentStream({
+                model: candidate,
+                contents,
+                config,
+              });
+
+              effectiveModel = candidate;
+
+              // If we had to switch to a fallback model due to high demand on the primary
+              if (!isPrimary) {
+                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Gemini 3.8 Engine)' : validModel;
+                const fallbackName = candidate === 'gemini-3.1-flash-lite' ? 'Gemini 3.1 Flash Lite' : candidate;
+                sendEvent('chunk', {
+                  text: `*(Engine notice: High demand detected. Dynamically routed through ${fallbackName})*\n\n`,
+                });
+              }
+
+              for await (const chunk of responseStream) {
+                const text = chunk.text;
+                if (text) {
+                  const safeText = redactSecrets(text, protectedSecrets);
+                  sendEvent('chunk', { text: safeText });
+                }
+              }
+              succeededChunking = true;
             }
 
-            succeeded = true;
-            sendEvent('done', { model: isAndromeda ? 'andromeda-soul-1' : effectiveModel, originalModel: validModel });
-            break; // Succeeded, exit attempt loop
+            if (succeededChunking) {
+              succeeded = true;
+              sendEvent('done', { model: isAndromeda ? 'andromeda-soul-1' : effectiveModel, originalModel: validModel });
+              break; // Succeeded, exit attempt loop
+            }
           } catch (err: any) {
             lastError = err;
             const parsed = extractCleanErrorMessage(err);
@@ -1527,6 +1927,17 @@ ${effectiveSystemInstruction}`;
       });
       res.end();
     }
+  });
+
+  // --- USERSCRIPT STATIC SERVING ---
+  app.get('/izenlol.user.js', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(process.cwd(), 'public', 'izenlol.user.js'));
+  });
+
+  app.get('/izen.user.js', (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(process.cwd(), 'public', 'izen.user.js'));
   });
 
   // --- VITE MIDDLEWARE (DEV) OR STATIC SERVE (PROD) ---

@@ -1,179 +1,303 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
-  Sparkles,
-  Terminal,
-  Send,
-  CheckCircle2,
-  Copy,
-  Check,
+  Terminal as TerminalIcon,
+  RotateCcw,
+  Trash2,
   Cpu,
-  Key,
-  Bot,
-  ShieldCheck,
+  CornerDownLeft,
+  Server,
+  Sparkles,
+  Zap
 } from 'lucide-react';
-import { streamChatCompletion } from '../lib/geminiClient';
-import { DEFAULT_SETTINGS } from '../data/defaultSettings';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
 
 interface ConsoleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialPrompt?: string;
 }
 
-export const ConsoleModal: React.FC<ConsoleModalProps> = ({
-  isOpen,
-  onClose,
-  initialPrompt = '',
-}) => {
-  const [prompt, setPrompt] = useState(initialPrompt);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [output, setOutput] = useState('');
-  const [apiKey, setApiKey] = useState('andromeda_live_' + Math.random().toString(36).substring(2, 15) + '_sk');
-  const [copiedKey, setCopiedKey] = useState(false);
+export const ConsoleModal: React.FC<ConsoleModalProps> = ({ isOpen, onClose }) => {
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  if (!isOpen) return null;
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [currentCwd, setCurrentCwd] = useState<string>('/app');
+  const [commandInput, setCommandInput] = useState<string>('');
 
-  const handleRun = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!prompt.trim() || isGenerating) return;
+  useEffect(() => {
+    if (!isOpen) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (xtermRef.current) {
+        xtermRef.current.dispose();
+        xtermRef.current = null;
+      }
+      return;
+    }
 
-    setIsGenerating(true);
-    setOutput('');
-
-    try {
-      await streamChatCompletion({
-        prompt: prompt.trim(),
-        history: [],
-        modelId: 'andromeda-3.8-flash',
-        systemInstruction: 'You are Andromeda Soul 1, a frontier AI engine.',
-        enableThinking: true,
-        settings: DEFAULT_SETTINGS,
-        onToken: (tok) => {
-          setOutput((prev) => prev + tok);
+    // Initialize Xterm.js
+    if (terminalRef.current && !xtermRef.current) {
+      const term = new Terminal({
+        fontFamily: '"JetBrains Mono", Menlo, Monaco, Consolas, "Courier New", monospace',
+        fontSize: 13,
+        lineHeight: 1.2,
+        theme: {
+          background: '#0d1117',
+          foreground: '#c9d1d9',
+          cursor: '#5ee6c0',
+          selectionBackground: '#1f6feb44',
+          black: '#0d1117',
+          red: '#ff7b72',
+          green: '#3fb950',
+          yellow: '#d29922',
+          blue: '#58a6ff',
+          magenta: '#bc8cff',
+          cyan: '#39c5cf',
+          white: '#b1bac4',
         },
+        cursorBlink: true,
+        allowTransparency: true,
+        convertEol: true
       });
-    } catch (err: any) {
-      setOutput(`[Andromeda Kernel Response]\nPrompt: "${prompt}"\n\nExecution successfully verified with zero token leakage across sandboxed nodes.`);
-    } finally {
-      setIsGenerating(false);
+
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      
+      term.open(terminalRef.current);
+      fitAddon.fit();
+
+      xtermRef.current = term;
+      fitAddonRef.current = fitAddon;
+
+      // Write welcome banner
+      term.writeln('\x1b[36m===========================================================\x1b[0m');
+      term.writeln('\x1b[35m    _   _  _ ___  ___   ___  __  __ ___ ___   _   ___  \x1b[0m');
+      term.writeln('\x1b[35m   /_\\ | \\| |   \\| _ \\ / _ \\|  \\/  | __|   \\ /_\\ | _ \\ \x1b[0m');
+      term.writeln('\x1b[35m  / _ \\| .` | |) |   /| (_) | |\\/| | _|| |) / _ \\|   / \x1b[0m');
+      term.writeln('\x1b[35m /_/ \\_\\_|\\_|___/|_|_\\ \\___/|_|  |_|___|___/_/ \\_\\_|_\\ \x1b[0m');
+      term.writeln('\x1b[36m===========================================================\x1b[0m');
+      term.writeln('\x1b[32m• Robust Xterm.js Sovereign Shell Engine Active\x1b[0m');
+      term.writeln('\x1b[33m• Supports Ollama interaction, local compilation, and full bash streaming.\x1b[0m');
+      term.writeln('\x1b[90m-----------------------------------------------------------\x1b[0m\r\n');
+
+      // Handle user input from Xterm -> Backend
+      term.onData((data) => {
+        fetch('/api/terminal/input', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: data === '\r' ? '' : data })
+        }).catch((err) => {
+          console.error('Terminal input transmission error:', err);
+        });
+      });
+
+      // Resize listener
+      const handleResize = () => {
+        try {
+          fitAddon.fit();
+        } catch (e) {
+          // ignore
+        }
+      };
+      window.addEventListener('resize', handleResize);
+
+      // Connect to SSE Terminal Stream
+      setStatus('connecting');
+      const eventSource = new EventSource('/api/terminal/stream');
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'output' || msg.type === 'error' || msg.type === 'system') {
+            term.write(msg.content);
+          } else if (msg.type === 'cwd') {
+            setCurrentCwd(msg.content);
+          }
+          setStatus('connected');
+        } catch (err) {
+          console.error('SSE parse error:', err);
+        }
+      };
+
+      eventSource.onerror = () => {
+        setStatus('disconnected');
+      };
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        eventSource.close();
+        term.dispose();
+        xtermRef.current = null;
+      };
+    }
+  }, [isOpen]);
+
+  // Handle Quick Command Execution
+  const executeQuickCommand = async (cmd: string) => {
+    try {
+      await fetch('/api/terminal/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd })
+      });
+    } catch (err) {
+      console.error('Failed to execute quick command:', err);
     }
   };
 
-  const handleCopyKey = () => {
-    navigator.clipboard.writeText(apiKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+  const handleCustomCommandSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commandInput.trim()) return;
+    const cmd = commandInput;
+    setCommandInput('');
+    await executeQuickCommand(cmd);
   };
 
+  const handleInterrupt = async () => {
+    await executeQuickCommand('\u0003');
+  };
+
+  const handleClear = () => {
+    if (xtermRef.current) {
+      xtermRef.current.clear();
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-[#09090b] border border-white/15 shadow-[0_0_60px_-10px_rgba(79,70,229,0.5)] overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-zinc-950/80 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white">
-              <Cpu className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-5xl h-[85vh] bg-[#0d1117] border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        
+        {/* Window Titlebar */}
+        <div className="h-12 bg-[#0a0e14] border-b border-slate-800/80 flex items-center justify-between px-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <button onClick={onClose} className="w-3 h-3 rounded-full bg-rose-500 hover:opacity-80 transition-opacity cursor-pointer" />
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white font-display">
-                Andromeda Edge Console
-              </h3>
-              <p className="text-[10px] font-mono text-zinc-400">
-                Sandboxed Interactive Session
-              </p>
+            <div className="h-4 w-[1px] bg-slate-800" />
+            <div className="flex items-center gap-2 text-slate-300 font-mono text-xs font-semibold">
+              <TerminalIcon className="w-4 h-4 text-emerald-400" />
+              <span>Andromeda Sovereign Xterm Shell</span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5">
-          {/* API Key Box */}
-          <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-white/[0.08] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Key className="w-4 h-4 text-indigo-400 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[10px] font-mono uppercase text-zinc-500">Your Developer Key</div>
-                <div className="font-mono text-xs text-zinc-200 truncate">{apiKey}</div>
-              </div>
-            </div>
+          {/* Status & Directory Indicator */}
+          <div className="hidden md:flex items-center gap-3 font-mono text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+              <Server className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-slate-300 truncate max-w-[240px]">{currentCwd}</span>
+            </span>
+            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
+              status === 'connected' 
+                ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400' 
+                : status === 'connecting'
+                ? 'bg-amber-950/30 border-amber-900/50 text-amber-400'
+                : 'bg-rose-950/30 border-rose-900/50 text-rose-400'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span className="capitalize">{status}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
             <button
-              type="button"
-              onClick={handleCopyKey}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 transition-colors shrink-0 cursor-pointer"
+              onClick={handleClear}
+              className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800/60 transition-colors cursor-pointer"
+              title="Clear Terminal Screen"
             >
-              {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800/60 transition-colors cursor-pointer"
+              title="Close Terminal"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Prompt Form */}
-          <form onSubmit={handleRun} className="space-y-3">
-            <label className="block text-xs font-mono text-zinc-400">
-              EXECUTE PROMPT ON FRONTIER ACCELERATOR
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. Build a Discord bot with /ask slash command..."
-                className="w-full px-4 py-3 rounded-xl bg-black/70 border border-white/10 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 font-mono focus:outline-hidden focus:border-indigo-500/80 transition-all pr-12"
-              />
-              <button
-                type="submit"
-                disabled={isGenerating || !prompt.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </form>
-
-          {/* Console Output Area */}
-          <div className="rounded-2xl bg-black/80 border border-white/[0.06] p-4 font-mono text-xs text-zinc-300 min-h-[160px] max-h-[280px] overflow-y-auto">
-            <div className="text-[10px] text-zinc-500 pb-2 mb-2 border-b border-white/[0.04] flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Terminal className="w-3 h-3 text-indigo-400" />
-                OUTPUT STREAM
-              </span>
-              <span className="text-emerald-400">
-                {isGenerating ? 'GENERATING...' : 'READY'}
-              </span>
-            </div>
-            {output ? (
-              <pre className="whitespace-pre-wrap leading-relaxed text-[11px] text-zinc-200">
-                {output}
-              </pre>
-            ) : (
-              <div className="text-zinc-600 italic text-[11px] py-4 text-center">
-                Submit a prompt above to witness real-time streaming inference.
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 bg-zinc-950/80 border-t border-white/[0.08] flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <div className="flex items-center gap-1.5 text-emerald-400">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Zero Token Leakage Enforced</span>
-          </div>
+        {/* Quick Action Toolbar */}
+        <div className="px-4 py-2 bg-[#0d1117] border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0 scrollbar-none">
+          <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider shrink-0">Quick Actions:</span>
           <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-mono transition-colors cursor-pointer"
+            onClick={() => executeQuickCommand('ollama list')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-indigo-300 transition-all cursor-pointer shrink-0"
           >
-            Close
+            <Cpu className="w-3 h-3 text-indigo-400" />
+            <span>ollama list</span>
           </button>
+          <button
+            onClick={() => executeQuickCommand('npm run build')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-emerald-300 transition-all cursor-pointer shrink-0"
+          >
+            <Zap className="w-3 h-3 text-emerald-400" />
+            <span>npm run build</span>
+          </button>
+          <button
+            onClick={() => executeQuickCommand('ls -la')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-cyan-300 transition-all cursor-pointer shrink-0"
+          >
+            <span>ls -la</span>
+          </button>
+          <button
+            onClick={() => executeQuickCommand('python3 server/learning_node.py train')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono text-violet-300 transition-all cursor-pointer shrink-0"
+          >
+            <Sparkles className="w-3 h-3 text-violet-400" />
+            <span>train ml model</span>
+          </button>
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleInterrupt}
+              className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/50 border border-rose-900/40 text-xs font-mono font-semibold text-rose-300 transition-all cursor-pointer"
+              title="Send Ctrl+C Interrupt"
+            >
+              ^C (Interrupt)
+            </button>
+          </div>
         </div>
+
+        {/* Xterm.js Container Viewport */}
+        <div className="flex-1 relative overflow-hidden bg-[#0d1117] p-2">
+          <div ref={terminalRef} className="w-full h-full" />
+        </div>
+
+        {/* Command Footer Input Bar */}
+        <form onSubmit={handleCustomCommandSubmit} className="h-14 bg-[#0a0e14] border-t border-slate-800 px-4 flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1 text-emerald-400 font-mono text-xs font-bold">
+            <span>$</span>
+          </div>
+          <input
+            type="text"
+            value={commandInput}
+            onChange={(e) => setCommandInput(e.target.value)}
+            placeholder="Type command to execute in Xterm shell..."
+            className="flex-1 bg-transparent border-0 outline-none text-slate-100 placeholder-slate-600 font-mono text-xs focus:ring-0"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <button
+            type="submit"
+            disabled={!commandInput.trim()}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer shadow-md"
+          >
+            <span>Execute</span>
+            <CornerDownLeft className="w-3.5 h-3.5" />
+          </button>
+        </form>
+
       </div>
     </div>
   );

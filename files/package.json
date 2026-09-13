@@ -1,0 +1,13 @@
+{
+  "name": "web-terminal-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.0",
+    "node-pty": "^1.0.0"
+  }
+}

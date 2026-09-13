@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile document containing authentication and details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique user ID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "name": { "type": "string", "description": "User display name" },
+        "avatar": { "type": "string", "description": "Base64 avatar string or profile picture path" },
+        "provider": { "type": "string", "enum": ["google", "apple", "guest"] },
+        "signedInAt": { "type": "number", "description": "Epoch timestamp of sign-in" }
+      },
+      "required": ["id", "email", "name", "provider"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A metadata document representing a chat session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "model": { "type": "string" },
+        "pinned": { "type": "boolean" },
+        "agentId": { "type": "string" },
+        "projectId": { "type": "string" }
+      },
+      "required": ["id", "title", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "An individual chat bubble message within a conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "modelId": { "type": "string" },
+        "thought": { "type": "string" },
+        "isDeepThinking": { "type": "boolean" },
+        "error": { "type": "boolean" }
+      },
+      "required": ["id", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Access to public profile of users"
+    },
+    "/users/{userId}/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Individual chat sessions for a specific user"
+    },
+    "/users/{userId}/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Nested messages under each chat session"
+    }
+  }
+}

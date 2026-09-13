@@ -13,6 +13,7 @@ import {
   Sliders,
   Cpu,
   HardDrive,
+  Terminal,
   Flame,
   CheckCircle2,
   ExternalLink,
@@ -23,7 +24,7 @@ import {
 import { Conversation, UserSettings, UserProfile } from '../types';
 import { UserAvatar } from './UserAvatar';
 
-interface ClaudeSidebarProps {
+interface AndromedaSidebarProps {
   conversations: Conversation[];
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
@@ -36,11 +37,13 @@ interface ClaudeSidebarProps {
   onOpenSettings: () => void;
   onOpenProviders: () => void;
   onOpenAuth?: () => void;
+  onOpenMediaEngine?: () => void;
+  onOpenTerminal?: () => void;
   currentUser?: UserProfile | null;
   settings: UserSettings;
 }
 
-export const ClaudeSidebar: React.FC<ClaudeSidebarProps> = ({
+export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
   conversations,
   activeConversationId,
   onSelectConversation,
@@ -53,6 +56,8 @@ export const ClaudeSidebar: React.FC<ClaudeSidebarProps> = ({
   onOpenSettings,
   onOpenProviders,
   onOpenAuth,
+  onOpenMediaEngine,
+  onOpenTerminal,
   currentUser,
   settings,
 }) => {
@@ -268,6 +273,26 @@ export const ClaudeSidebar: React.FC<ClaudeSidebarProps> = ({
             <Plus className="w-4 h-4 text-[#D97706]" />
             <span>New Chat</span>
           </button>
+
+          {/* Quantum Utility Tools Row */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => onOpenMediaEngine?.()}
+              className="flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
+              title="Creative Picture & Video Studio"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Media Engine</span>
+            </button>
+            <button
+              onClick={() => onOpenTerminal?.()}
+              className="flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
+              title="Built-in Bash Shell Terminal"
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Bash Shell</span>
+            </button>
+          </div>
 
           {/* Search box */}
           <div className="relative">

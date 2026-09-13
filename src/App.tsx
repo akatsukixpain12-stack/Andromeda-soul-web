@@ -1,13 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClaudeNavbar } from './components/ClaudeNavbar';
-import { ClaudeSidebar } from './components/ClaudeSidebar';
-import { ClaudeChatArea } from './components/ClaudeChatArea';
+import { AndromedaNavbar } from './components/AndromedaNavbar';
+import { AndromedaSidebar } from './components/AndromedaSidebar';
+import { AndromedaChatArea } from './components/AndromedaChatArea';
 import { ProvidersModal } from './components/ProvidersModal';
 import { AuthModal } from './components/AuthModal';
+import { ImageCreationModal } from './components/ImageCreationModal';
+import { ConsoleModal } from './components/ConsoleModal';
 import { Conversation, ChatMessage, ChatAttachment, UserSettings, UserProfile } from './types';
 import { DEFAULT_SETTINGS } from './data/defaultSettings';
 import { streamMultiProviderChat } from './lib/aiClient';
 import { AI_MODELS } from './data/models';
+import {
+  auth,
+  dbSaveConversation,
+  dbDeleteConversation,
+  dbSubscribeConversations,
+  dbSaveUserProfile,
+  dbSaveUserSettings
+} from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const STORAGE_KEY_CONVERSATIONS = 'andromeda_conversations_v3';
 const STORAGE_KEY_SETTINGS = 'andromeda_settings_v3';
@@ -127,6 +138,8 @@ export function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProvidersModalOpen, setIsProvidersModalOpen] = useState(false);
+  const [isMediaEngineOpen, setIsMediaEngineOpen] = useState(false);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
   // Streaming State
   const [isStreaming, setIsStreaming] = useState(false);
@@ -163,6 +176,93 @@ export function App() {
     }
   }, [currentUser]);
 
+  // Firebase Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const profile: UserProfile = {
+          id: user.uid,
+          email: user.email || '',
+          name: user.displayName || 'Andromeda Creator',
+          avatar: user.photoURL || '',
+          provider: 'google',
+          signedInAt: Date.now()
+        };
+        setCurrentUser(profile);
+        dbSaveUserProfile(user.uid, profile);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Firebase Firestore real-time sync for Conversations list
+  useEffect(() => {
+    if (!currentUser || currentUser.provider === 'guest') return;
+
+    const unsubscribe = dbSubscribeConversations(currentUser.id, (list) => {
+      if (list.length === 0) {
+        dbSaveConversation(currentUser.id, INITIAL_CONVERSATION);
+      } else {
+        setConversations(list);
+        if (!list.some(c => c.id === activeConversationId)) {
+          setActiveConversationId(list[0].id);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Sync settings to Firestore
+  useEffect(() => {
+    if (currentUser && currentUser.provider !== 'guest') {
+      dbSaveUserSettings(currentUser.id, settings);
+    }
+  }, [settings, currentUser]);
+
+  // Real OAuth synchronization & URL callback listener
+  useEffect(() => {
+    const fetchServerProfile = async () => {
+      try {
+        const res = await fetch('/api/auth/profile');
+        if (res.ok) {
+          const profile = await res.json();
+          // If the server has a real signed-in user (not guest, or updated guest), sync it
+          if (profile && profile.id) {
+            setCurrentUser(profile);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not sync profile with server:', err);
+      }
+    };
+
+    fetchServerProfile();
+
+    // Check for callback parameters
+    const params = new URLSearchParams(window.location.search);
+    const authSuccess = params.get('auth_success');
+    const authError = params.get('auth_error');
+    const githubSuccess = params.get('github_success');
+    const githubError = params.get('github_error');
+    const githubUser = params.get('username');
+
+    if (authSuccess === 'true') {
+      fetchServerProfile();
+      // Clean query params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (authError) {
+      console.error('Google Auth callback error:', authError);
+      alert(`Google Authentication Failed: ${authError}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (githubSuccess === 'true') {
+      alert(`Successfully connected to GitHub account: ${githubUser || 'connected'}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (githubError) {
+      alert(`GitHub connection failed: ${githubError}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || conversations[0];
   const activeMessages = activeConversation ? activeConversation.messages : [];
 
@@ -186,6 +286,10 @@ export function App() {
 
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(newConv.id);
+
+    if (currentUser && currentUser.provider !== 'guest') {
+      dbSaveConversation(currentUser.id, newConv);
+    }
   };
 
   // Delete Conversation
@@ -201,6 +305,9 @@ export function App() {
           updatedAt: Date.now(),
         };
         setActiveConversationId(fallback.id);
+        if (currentUser && currentUser.provider !== 'guest') {
+          dbSaveConversation(currentUser.id, fallback);
+        }
         return [fallback];
       }
       if (activeConversationId === id) {
@@ -208,20 +315,38 @@ export function App() {
       }
       return filtered;
     });
+
+    if (currentUser && currentUser.provider !== 'guest') {
+      dbDeleteConversation(currentUser.id, id);
+    }
   };
 
   // Rename Conversation
   const handleRenameConversation = (id: string, newTitle: string) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title: newTitle, updatedAt: Date.now() } : c))
-    );
+    setConversations((prev) => {
+      const updated = prev.map((c) => (c.id === id ? { ...c, title: newTitle, updatedAt: Date.now() } : c));
+      if (currentUser && currentUser.provider !== 'guest') {
+        const target = updated.find((c) => c.id === id);
+        if (target) {
+          dbSaveConversation(currentUser.id, target);
+        }
+      }
+      return updated;
+    });
   };
 
   // Toggle Pin
   const handleTogglePinConversation = (id: string) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
-    );
+    setConversations((prev) => {
+      const updated = prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c));
+      if (currentUser && currentUser.provider !== 'guest') {
+        const target = updated.find((c) => c.id === id);
+        if (target) {
+          dbSaveConversation(currentUser.id, target);
+        }
+      }
+      return updated;
+    });
   };
 
   // Stop Streaming
@@ -245,11 +370,15 @@ export function App() {
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id === activeConversationId) {
-            return {
+            const updated = {
               ...c,
               messages: [...c.messages, assistantMessage],
               updatedAt: Date.now(),
             };
+            if (currentUser && currentUser.provider !== 'guest') {
+              dbSaveConversation(currentUser.id, updated);
+            }
+            return updated;
           }
           return c;
         })
@@ -291,6 +420,9 @@ export function App() {
       setActiveConversationId(newConv.id);
       targetConvId = newConv.id;
       currentConv = newConv;
+      if (currentUser && currentUser.provider !== 'guest') {
+        dbSaveConversation(currentUser.id, newConv);
+      }
     } else {
       const isFirstMessage = currentConv.messages.length === 0;
       const newTitle = isFirstMessage ? prompt.slice(0, 36) || 'New Conversation' : currentConv.title;
@@ -298,12 +430,16 @@ export function App() {
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id === targetConvId) {
-            return {
+            const updated = {
               ...c,
               title: newTitle,
               messages: [...c.messages, userMessage],
               updatedAt: Date.now(),
             };
+            if (currentUser && currentUser.provider !== 'guest') {
+              dbSaveConversation(currentUser.id, updated);
+            }
+            return updated;
           }
           return c;
         })
@@ -351,11 +487,15 @@ export function App() {
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id === targetConvId) {
-            return {
+            const updated = {
               ...c,
               messages: [...c.messages, assistantMessage],
               updatedAt: Date.now(),
             };
+            if (currentUser && currentUser.provider !== 'guest') {
+              dbSaveConversation(currentUser.id, updated);
+            }
+            return updated;
           }
           return c;
         })
@@ -371,7 +511,16 @@ export function App() {
           timestamp: Date.now(),
         };
         setConversations((prev) =>
-          prev.map((c) => (c.id === targetConvId ? { ...c, messages: [...c.messages, errorMessage] } : c))
+          prev.map((c) => {
+            if (c.id === targetConvId) {
+              const updated = { ...c, messages: [...c.messages, errorMessage] };
+              if (currentUser && currentUser.provider !== 'guest') {
+                dbSaveConversation(currentUser.id, updated);
+              }
+              return updated;
+            }
+            return c;
+          })
         );
       }
     } finally {
@@ -418,7 +567,7 @@ export function App() {
   return (
     <div className="flex h-screen w-screen bg-[#FAF9F5] text-[#1C1917] overflow-hidden select-text">
       {/* 1. Left Sidebar (Collapsible drawer with chats, search, and free provider widgets) */}
-      <ClaudeSidebar
+      <AndromedaSidebar
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={setActiveConversationId}
@@ -431,6 +580,8 @@ export function App() {
         onOpenSettings={() => setIsProvidersModalOpen(true)}
         onOpenProviders={() => setIsProvidersModalOpen(true)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenMediaEngine={() => setIsMediaEngineOpen(true)}
+        onOpenTerminal={() => setIsTerminalOpen(true)}
         currentUser={currentUser}
         settings={settings}
       />
@@ -438,7 +589,7 @@ export function App() {
       {/* 2. Main Studio Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top Navbar: Brand, Title, Model Dropdown (Gemini, Claude, Ollama, LM Studio), Actions */}
-        <ClaudeNavbar
+        <AndromedaNavbar
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onNewChat={handleNewChat}
@@ -452,7 +603,7 @@ export function App() {
         />
 
         {/* Central Chat Thread with Thinking Accordions and Floating Claude Input Pill */}
-        <ClaudeChatArea
+        <AndromedaChatArea
           messages={activeMessages}
           streamingMessage={streamingMessage}
           streamingThought={streamingThought}
@@ -501,6 +652,28 @@ export function App() {
         onLogout={() => {
           setCurrentUser(null);
         }}
+      />
+
+      {/* 5. Creative Media Engine Studio (Image & Video Generation) */}
+      <ImageCreationModal
+        isOpen={isMediaEngineOpen}
+        onClose={() => setIsMediaEngineOpen(false)}
+        onSendToChat={(imageUrl, prompt) => {
+          handleSendMessage(`Visual Asset Generated: "${prompt}"`, [{
+            id: `img-${Date.now()}`,
+            name: 'Generated Image',
+            type: 'image/png',
+            size: 0,
+            data: imageUrl,
+            previewUrl: imageUrl
+          }]);
+        }}
+      />
+
+      {/* 6. Built-in Bash Shell Terminal */}
+      <ConsoleModal
+        isOpen={isTerminalOpen}
+        onClose={() => setIsTerminalOpen(false)}
       />
     </div>
   );

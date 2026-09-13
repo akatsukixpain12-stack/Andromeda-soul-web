@@ -26,7 +26,7 @@ import { ChatMessage, ChatAttachment, AIModelOption, UserProfile } from '../type
 import { AI_MODELS } from '../data/models';
 import { UserAvatar } from './UserAvatar';
 
-interface ClaudeChatAreaProps {
+interface AndromedaChatAreaProps {
   messages: ChatMessage[];
   streamingMessage: string;
   streamingThought?: string;
@@ -44,7 +44,7 @@ interface ClaudeChatAreaProps {
   onOpenProvidersModal: () => void;
 }
 
-export const ClaudeChatArea: React.FC<ClaudeChatAreaProps> = ({
+export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   messages,
   streamingMessage,
   streamingThought,
