@@ -345,6 +345,45 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         <div className="max-w-3xl mx-auto space-y-6">
+          {/* Empty Chat Welcome State */}
+          {messages.length === 0 && !isStreaming && (
+            <div className="h-[55vh] flex flex-col items-center justify-center text-center px-4">
+              <div className="relative mb-4">
+                <img
+                  src="/andromeda-logo.png"
+                  alt="Andromeda Soul Mascot"
+                  className="w-20 h-20 rounded-2xl object-cover shadow-lg border border-blue-200/60 ring-2 ring-blue-500/20"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-white" />
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-[#1C1917] tracking-tight mb-1">
+                Andromeda Soul v1.0
+              </h2>
+              <p className="text-xs text-[#78716C] max-w-sm leading-relaxed mb-5 font-mono">
+                Think • Code • Create • Together
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2 max-w-md">
+                {[
+                  'Code a Discord bot (/discord)',
+                  'Teach Andromeda new rules',
+                  'Explain quantum computing simply',
+                  'Generate a full TypeScript project',
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => onSendMessage(suggestion, [], isThinkingEnabled)}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-[#E2E0D8] hover:border-blue-500/50 hover:bg-[#F9F8F5] text-xs text-[#44403C] transition-all cursor-pointer shadow-2xs font-sans"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {messages.map((message) => {
             const isUser = message.role === 'user';
             const content = message.content;

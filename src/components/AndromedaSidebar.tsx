@@ -247,12 +247,15 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
         <div className="p-3.5 border-b border-[#F0EEE6] space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-600 via-orange-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                A
-              </div>
+              <img
+                src="/andromeda-logo.png"
+                alt="Andromeda Soul Logo"
+                className="w-8 h-8 rounded-xl object-cover shadow-xs border border-blue-200/50"
+                referrerPolicy="no-referrer"
+              />
               <div className="leading-tight">
-                <span className="font-bold text-sm text-[#1C1917] tracking-tight block">Andromeda</span>
-                <span className="text-[11px] text-[#78716C] font-medium block">Sovereign AI Studio</span>
+                <span className="font-bold text-sm text-[#1C1917] tracking-tight block">Andromeda Soul</span>
+                <span className="text-[11px] text-[#78716C] font-medium block">Think • Code • Create</span>
               </div>
             </div>
 

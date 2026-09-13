@@ -134,9 +134,15 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
             <PanelLeft className="w-5 h-5" />
           </button>
 
-          <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#F2F0E8] border border-[#E5E3DB] shrink-0">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-xs font-semibold text-[#44403C] tracking-wide uppercase">Andromeda</span>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-[#F2F0E8] border border-[#E5E3DB] shrink-0">
+            <img
+              src="/andromeda-logo.png"
+              alt="Andromeda Soul Logo"
+              className="w-5 h-5 rounded-md object-cover shadow-2xs border border-blue-200/50"
+              referrerPolicy="no-referrer"
+            />
+            <span className="hidden sm:inline text-xs font-bold text-[#1C1917] tracking-tight">Andromeda Soul</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" title="Online" />
           </div>
 
           {/* Active conversation title (Editable) */}
