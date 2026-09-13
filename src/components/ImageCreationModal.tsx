@@ -41,14 +41,13 @@ const ASPECT_RATIOS = [
 ];
 
 const IMAGE_ENGINES = [
-  { id: 'flux', name: 'Flux.1 / SDXL (Direct Neural)', badge: 'Fast & Free', desc: 'No Gemini key required' },
-  { id: 'pollinations', name: 'Pollinations AI Neural', badge: 'High Quality', desc: 'Instant open synthesis' },
-  { id: 'gemini', name: 'Google Gemini Imagen', badge: 'Google API', desc: 'Requires Gemini key' },
+  { id: 'imagen', name: 'Google Imagen 3 / Gemini Image', badge: 'Ultra HD', desc: 'Frontier high-resolution generative rendering' },
+  { id: 'flux', name: 'Flux.1 High-Res Neural Diffusion', badge: 'Fast & Rich', desc: 'Direct neural synthesis' },
 ];
 
 const VIDEO_ENGINES = [
-  { id: 'neural', name: 'Andromeda Neural Motion (SDXL/Flux)', badge: 'Instant & Open', desc: 'Works without Gemini keys' },
-  { id: 'veo', name: 'Google Veo 3.1 Cinema', badge: 'Google Veo', desc: 'Requires Veo access' },
+  { id: 'neural', name: 'Andromeda Neural Motion (Cinematic)', badge: 'Instant Render', desc: 'High dynamic motion synthesis' },
+  { id: 'veo', name: 'Google Veo Cinema (Pro)', badge: 'Google Veo', desc: 'Requires Veo access' },
 ];
 
 export const ImageCreationModal: React.FC<ImageCreationModalProps> = ({
@@ -60,7 +59,7 @@ export const ImageCreationModal: React.FC<ImageCreationModalProps> = ({
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [style, setStyle] = useState('photorealistic');
-  const [selectedImageEngine, setSelectedImageEngine] = useState('flux');
+  const [selectedImageEngine, setSelectedImageEngine] = useState('imagen');
   const [selectedVideoEngine, setSelectedVideoEngine] = useState('neural');
 
   const [isGenerating, setIsGenerating] = useState(false);

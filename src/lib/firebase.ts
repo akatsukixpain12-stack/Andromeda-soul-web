@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  setPersistence,
+  inMemoryPersistence,
+  browserSessionPersistence
+} from 'firebase/auth';
 import {
   getFirestore,
   doc,
@@ -21,7 +29,16 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
 
-// Google Auth Provider
+// Enforce tab-memory / session-only authentication persistence
+// Prevents credentials from leaking to disk or across browser tabs
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  // Fallback to strict inMemoryPersistence if browser session storage is restricted
+  setPersistence(auth, inMemoryPersistence).catch((memErr) => {
+    console.warn('[Firebase Auth Persistence Notice]:', memErr);
+  });
+});
+
+// Google Auth Provider with forced account chooser
 export const googleAuthProvider = new GoogleAuthProvider();
 googleAuthProvider.setCustomParameters({
   prompt: 'select_account'

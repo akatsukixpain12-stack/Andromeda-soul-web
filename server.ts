@@ -1204,105 +1204,136 @@ npm start
     }
   });
 
-  // --- IMAGE CREATION API (PICTURE GENERATION) ---
+  // --- IMAGE CREATION API (REAL BASE64 / HIGH-RES SYNTHESIS) ---
   app.post('/api/image/generate', async (req: Request, res: Response) => {
-    const { prompt, aspectRatio = '1:1', style = 'photorealistic', engine = 'flux' } = req.body;
+    const { prompt, aspectRatio = '1:1', style = 'photorealistic', engine = 'imagen' } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ success: false, error: 'Image prompt is required.' });
     }
 
     const imageId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const validatedAspectRatio = ['1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2'].includes(aspectRatio) ? aspectRatio : '1:1';
+    const validatedAspectRatio = ['1:1', '3:4', '4:3', '9:16', '16:9'].includes(aspectRatio) ? aspectRatio : '1:1';
 
-    // Dimension map for non-Gemini engines
-    const dimMap: Record<string, { width: number; height: number }> = {
-      '1:1': { width: 1024, height: 1024 },
-      '16:9': { width: 1280, height: 720 },
-      '9:16': { width: 720, height: 1280 },
-      '4:3': { width: 1024, height: 768 },
-      '3:4': { width: 768, height: 1024 },
-      '2:3': { width: 680, height: 1024 },
-      '3:2': { width: 1024, height: 680 }
-    };
-    const { width, height } = dimMap[validatedAspectRatio] || { width: 1024, height: 1024 };
+    const enhancedPrompt = style && style !== 'none' && style !== 'photorealistic'
+      ? `${prompt}, in ${style} style, detailed masterpiece, fine textures, high resolution`
+      : `${prompt}, photorealistic high resolution, detailed composition, sharp focus, natural lighting`;
 
-    // 1. If engine is Flux / Open SDXL (non-Gemini) or default:
-    if (engine === 'flux' || engine === 'open' || engine === 'pollinations') {
-      try {
-        const encodedPrompt = encodeURIComponent(`${style ? style + ', ' : ''}${prompt}`);
-        const fluxUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
-        
-        return res.json({
-          success: true,
-          image: {
-            id: imageId,
-            url: fluxUrl,
-            prompt,
-            aspectRatio: validatedAspectRatio,
-            engine: 'Flux.1 Neural Synthesizer',
-            createdAt: Date.now(),
-          },
-        });
-      } catch (err: any) {
-        console.warn('[Flux Image Gen Notice]:', err.message || err);
-      }
-    }
-
-    // 2. Try Gemini image generation model if explicitly selected
+    // 1. Try Google Imagen 3 / Gemini Image models via @google/genai first!
     const ai = getGeminiClient();
-    if (ai && engine === 'gemini') {
+    if (ai) {
+      // 1A. Try Imagen 3 (imagen-3.0-generate-002)
       try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite-image',
+        const imagenRes = await ai.models.generateImages({
+          model: 'imagen-3.0-generate-002',
+          prompt: enhancedPrompt,
+          config: {
+            numberOfImages: 1,
+            aspectRatio: validatedAspectRatio as any,
+          }
+        });
+
+        const imageBytes = imagenRes.generatedImages?.[0]?.image?.imageBytes;
+        if (imageBytes) {
+          return res.json({
+            success: true,
+            image: {
+              id: imageId,
+              url: `data:image/png;base64,${imageBytes}`,
+              prompt,
+              aspectRatio: validatedAspectRatio,
+              engine: 'Google Imagen 3 (Ultra HD)',
+              createdAt: Date.now(),
+            },
+          });
+        }
+      } catch (imagenErr: any) {
+        console.warn('[Imagen 3 Generation Notice]:', imagenErr.message || imagenErr);
+      }
+
+      // 1B. Try Gemini 3.1 Flash Image (gemini-3.1-flash-image)
+      try {
+        const flashRes = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-image',
           contents: {
-            parts: [
-              {
-                text: `High quality ${style}: ${prompt}`,
-              },
-            ],
+            parts: [{ text: enhancedPrompt }]
           },
           config: {
             imageConfig: {
               aspectRatio: validatedAspectRatio as any,
               imageSize: '1K'
-            },
-          },
+            }
+          }
         });
 
-        if (response.candidates?.[0]?.content?.parts) {
-          for (const part of response.candidates[0].content.parts) {
+        if (flashRes.candidates?.[0]?.content?.parts) {
+          for (const part of flashRes.candidates[0].content.parts) {
             if (part.inlineData && part.inlineData.data) {
               const mime = part.inlineData.mimeType || 'image/png';
-              const imageUrl = `data:${mime};base64,${part.inlineData.data}`;
               return res.json({
                 success: true,
                 image: {
                   id: imageId,
-                  url: imageUrl,
+                  url: `data:${mime};base64,${part.inlineData.data}`,
                   prompt,
                   aspectRatio: validatedAspectRatio,
-                  engine: 'Gemini Image Studio',
+                  engine: 'Gemini 3.1 Flash Image',
                   createdAt: Date.now(),
                 },
               });
             }
           }
         }
-      } catch (err: any) {
-        console.warn('[Gemini Image Gen generateContent API Notice]:', err.message || err);
+      } catch (flashErr: any) {
+        console.warn('[Gemini Flash Image Generation Notice]:', flashErr.message || flashErr);
       }
     }
 
-    // 3. High-quality neural image direct URL fallback
-    const encodedPrompt = encodeURIComponent(prompt);
-    const directUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=true`;
+    // 2. High-Quality Neural Synthesis Fetcher (Fetches real image buffer on server, converts to base64)
+    const dimMap: Record<string, { width: number; height: number }> = {
+      '1:1': { width: 1024, height: 1024 },
+      '16:9': { width: 1280, height: 720 },
+      '9:16': { width: 720, height: 1280 },
+      '4:3': { width: 1024, height: 768 },
+      '3:4': { width: 768, height: 1024 },
+    };
+    const { width, height } = dimMap[validatedAspectRatio] || { width: 1024, height: 1024 };
+
+    try {
+      const encodedPrompt = encodeURIComponent(enhancedPrompt);
+      const seed = Math.floor(Math.random() * 1000000);
+      const neuralUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=true&seed=${seed}`;
+      
+      const imageFetchRes = await fetch(neuralUrl, { headers: { 'User-Agent': 'Andromeda-Studio/1.0' } });
+      if (imageFetchRes.ok) {
+        const buffer = await imageFetchRes.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const contentType = imageFetchRes.headers.get('content-type') || 'image/jpeg';
+        return res.json({
+          success: true,
+          image: {
+            id: imageId,
+            url: `data:${contentType};base64,${base64}`,
+            prompt,
+            aspectRatio: validatedAspectRatio,
+            engine: 'Flux.1 Neural Synthesizer (Base64 Render)',
+            createdAt: Date.now(),
+          },
+        });
+      }
+    } catch (fetchErr: any) {
+      console.warn('[Neural Image Fetcher Notice]:', fetchErr.message || fetchErr);
+    }
+
+    // Fallback direct URL if server fetch is rate-limited
+    const encodedFallbackPrompt = encodeURIComponent(enhancedPrompt);
+    const directFallbackUrl = `https://image.pollinations.ai/prompt/${encodedFallbackPrompt}?width=${width}&height=${height}&model=flux&nologo=true`;
 
     return res.json({
       success: true,
       image: {
         id: imageId,
-        url: directUrl,
+        url: directFallbackUrl,
         prompt,
         aspectRatio: validatedAspectRatio,
         engine: 'Flux Neural Studio',
@@ -1531,15 +1562,21 @@ npm start
   });
 
   app.post('/api/terminal/input', async (req: Request, res: Response) => {
-    const { command } = req.body;
+    const { command, rawData } = req.body;
     
     const shell = initTerminalShell();
     
-    if (command === '\u0003') {
+    if (command === '\u0003' || rawData === '\u0003') {
       // Send Ctrl+C SIGINT
       console.log('[Terminal Server]: Received SIGINT (Ctrl+C) interrupt request.');
       shell.kill('SIGINT');
       broadcastTerminal({ type: 'output', content: '^C\n' });
+      res.json({ success: true });
+      return;
+    }
+
+    if (rawData !== undefined && rawData !== '') {
+      shell.stdin.write(rawData);
       res.json({ success: true });
       return;
     }
