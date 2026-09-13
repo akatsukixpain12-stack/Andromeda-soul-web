@@ -1,17 +1,24 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
 
 @layer base {
   :root {
     --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
     --font-body: 'Plus Jakarta Sans', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --surface: #ffffff;
+    --canvas: #f8fafc;
+    --ink: #172033;
+    --muted: #64748b;
+    --line: #e6eaf0;
+    --accent: #5b5ce2;
+    --accent-soft: #eef0ff;
   }
 
   body {
     font-family: var(--font-body);
-    background-color: #FAF9F5;
-    color: #1C1917;
+    background-color: var(--canvas);
+    color: var(--ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -20,6 +27,24 @@
     min-height: 100dvh;
     -webkit-text-size-adjust: 100%;
     touch-action: manipulation;
+  }
+
+  ::selection {
+    background: #dfe2ff;
+    color: #25275f;
+  }
+
+  button, input, textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button {
+    transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease,
+      border-color 150ms ease, color 150ms ease;
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   html {
@@ -41,28 +66,28 @@
   }
 }
 
-/* Andromeda warm white card */
+/* Shared workspace surfaces */
 .andromeda-card {
-  background-color: #FFFFFF;
-  border: 1px solid #EAE8E2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .andromeda-input-pill {
-  background-color: #FFFFFF;
-  border: 1px solid #E2E0D8;
-  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
+  background-color: var(--surface);
+  border: 1px solid #dfe4ec;
+  box-shadow: 0 10px 28px -10px rgba(15, 23, 42, 0.14);
 }
 
 .andromeda-input-pill:focus-within {
-  border-color: #D97706;
-  box-shadow: 0 4px 24px -2px rgba(217, 119, 6, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  border-color: #a8adff;
+  box-shadow: 0 0 0 4px rgba(91, 92, 226, 0.1), 0 12px 30px -10px rgba(15, 23, 42, 0.16);
 }
 
 /* Thinking accordion styling */
 .thought-container {
-  background: #F7F6F1;
-  border-left: 3px solid #D97706;
+  background: #f5f6ff;
+  border-left: 3px solid var(--accent);
   border-radius: 0 0.5rem 0.5rem 0;
 }
 

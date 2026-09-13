@@ -125,20 +125,20 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#EAE8E2] px-2 sm:px-4 py-2 sm:py-2.5 transition-colors shrink-0">
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 px-3 sm:px-6 py-2.5 sm:py-3 shrink-0">
+      <div className="w-full max-w-[1440px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Sidebar Toggle & Brand / Title */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
           <button
             id="toggle-sidebar-button"
             onClick={onToggleSidebar}
-            className="p-1.5 sm:p-2 rounded-xl text-[#57534E] hover:text-[#1C1917] hover:bg-[#F0EEE6] transition-colors cursor-pointer shrink-0"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer shrink-0"
             title={isSidebarOpen ? 'Collapse sidebar' : 'Open sidebar'}
           >
             <PanelLeft className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-[#F2F0E8] border border-[#E5E3DB] shrink-0">
+          <div className="flex items-center gap-2 px-2 py-1 rounded-xl bg-slate-50 border border-slate-200 shrink-0">
             <img
               src="/andromeda-logo.png"
               alt="Andromeda Soul Logo"
@@ -160,13 +160,13 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
                   onChange={(e) => setTitleInput(e.target.value)}
                   onBlur={() => handleSaveTitle()}
                   autoFocus
-                  className="px-2 py-0.5 text-xs sm:text-sm font-medium bg-white border border-[#D97706] rounded-md text-[#1C1917] outline-none"
+                  className="px-2 py-0.5 text-xs sm:text-sm font-medium bg-white border border-indigo-300 rounded-md text-slate-900 outline-none"
                 />
               </form>
             ) : (
               <button
                 onClick={handleStartEditing}
-                className="group flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#1C1917] truncate hover:text-[#D97706] transition-colors"
+                className="group flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-800 truncate hover:text-indigo-600"
                 title="Click to rename"
               >
                 <span className="truncate">{activeConversationTitle || 'New Conversation'}</span>
@@ -181,7 +181,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           <button
             id="model-selector-pill"
             onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-white hover:bg-[#F9F8F5] border border-[#E2E0D8] text-[#1C1917] shadow-xs transition-all cursor-pointer hover:border-[#D0CDC4] max-w-[150px] sm:max-w-none"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-white hover:bg-indigo-50 border border-slate-200 text-slate-800 shadow-sm cursor-pointer hover:border-indigo-200 max-w-[150px] sm:max-w-none"
           >
             <div className="flex items-center gap-1.5 min-w-0">
               {getProviderIcon(currentModel.provider)}
@@ -366,7 +366,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           <button
             id="navbar-new-chat-button"
             onClick={onNewChat}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-[#1C1917] hover:bg-[#292524] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-200 cursor-pointer shrink-0"
             title="Start new conversation"
           >
             <Plus className="w-3.5 h-3.5" />

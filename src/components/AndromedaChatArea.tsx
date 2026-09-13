@@ -323,14 +323,14 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 relative overflow-hidden">
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 sm:py-10 space-y-6">
+        <div className="w-full max-w-4xl mx-auto space-y-6">
           {/* Empty Chat Welcome State */}
           {messages.length === 0 && !isStreaming && (
-            <div className="h-[55vh] flex flex-col items-center justify-center text-center px-4">
-              <div className="relative mb-4">
+            <div className="min-h-[55vh] flex flex-col items-center justify-center text-center px-4">
+              <div className="relative mb-5">
                 <img
                   src="/andromeda-logo.png"
                   alt="Andromeda Soul Mascot"
@@ -341,13 +341,13 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                   <Sparkles className="w-3 h-3 text-white" />
                 </span>
               </div>
-              <h2 className="text-xl font-bold text-[#1C1917] tracking-tight mb-1">
-                Andromeda Soul v1.0
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-2">
+                What will you create today?
               </h2>
-              <p className="text-xs text-[#78716C] max-w-sm leading-relaxed mb-5 font-mono">
-                Think • Code • Create • Together
+              <p className="text-sm text-slate-500 max-w-sm leading-relaxed mb-7">
+                Think, code, and create with your AI workspace.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-2 max-w-md">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
                 {[
                   'Code a Discord bot (/discord)',
                   'Generate image of a futuristic cybernetic city',
@@ -357,8 +357,9 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                   <button
                     key={suggestion}
                     onClick={() => onSendMessage(suggestion, [], isThinkingEnabled)}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-[#E2E0D8] hover:border-blue-500/50 hover:bg-[#F9F8F5] text-xs text-[#44403C] transition-all cursor-pointer shadow-2xs font-sans"
+                    className="group text-left px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 text-sm text-slate-700 transition-all cursor-pointer shadow-sm hover:shadow-md font-sans"
                   >
+                    <span className="block text-xs text-indigo-600 font-semibold mb-1">Try asking</span>
                     {suggestion}
                   </button>
                 ))}
@@ -397,7 +398,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                       </div>
                     )}
 
-                    <div className="px-4 py-3 rounded-2xl bg-[#1C1917] text-[#FAF9F5] text-sm leading-relaxed whitespace-pre-wrap font-sans shadow-xs selection:bg-[#D97706] selection:text-white">
+                    <div className="px-4 py-3 rounded-2xl rounded-tr-md bg-slate-900 text-white text-sm leading-relaxed whitespace-pre-wrap font-sans shadow-sm shadow-slate-200 selection:bg-indigo-500 selection:text-white">
                       {content}
                     </div>
                   </div>
@@ -413,7 +414,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                 initial={{ scale: 0.92, opacity: 0, y: 14 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                className="flex flex-col space-y-3"
+                className="flex flex-col space-y-3 rounded-2xl bg-white border border-slate-200/80 px-4 py-4 sm:px-5 shadow-sm"
               >
                 {/* Assistant Model Tag & Thought */}
                 <div className="flex items-center gap-2">
@@ -666,9 +667,9 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
         initial={{ y: 25, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-        className="p-4 sm:p-6 bg-[#FAF9F5] border-t border-[#E2E0D8] shrink-0"
+        className="p-4 sm:p-6 bg-white/80 border-t border-slate-200 shrink-0 backdrop-blur-sm"
       >
-        <div className="max-w-3xl mx-auto">
+        <div className="w-full max-w-4xl mx-auto">
           {/* Active Attachments Preview */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
@@ -691,7 +692,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
           )}
 
           {/* Unified Input Card */}
-          <div className="rounded-2xl border border-[#D9D6CC] bg-white shadow-xs focus-within:border-[#B5B0A1] focus-within:ring-2 focus-within:ring-[#EAE7DF] transition-all overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50 focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-100 transition-all overflow-hidden">
             <textarea
               id="andromeda-chat-input"
               ref={textareaRef}

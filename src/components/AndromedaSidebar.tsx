@@ -142,16 +142,16 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
           onSelectConversation(conv.id);
           if (window.innerWidth < 768) onCloseMobile();
         }}
-        className={`group relative flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all cursor-pointer ${
+        className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all cursor-pointer ${
           isActive
-            ? 'bg-[#F2EFE9] text-[#1C1917] font-semibold shadow-2xs'
-            : 'text-[#44403C] hover:bg-[#F5F3ED] hover:text-[#1C1917]'
+            ? 'bg-indigo-50 text-indigo-950 font-semibold shadow-sm ring-1 ring-indigo-100'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <MessageSquare
             className={`w-4 h-4 shrink-0 transition-colors ${
-              isActive ? 'text-[#D97706]' : 'text-[#8C887B] group-hover:text-[#44403C]'
+              isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'
             }`}
           />
 
@@ -243,12 +243,12 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
 
       <aside
         id="andromeda-sidebar"
-        className={`fixed md:sticky top-0 left-0 z-40 h-[100dvh] w-72 max-w-[85vw] bg-[#FBFBFA] border-r border-[#EAE8E2] flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed md:sticky top-0 left-0 z-40 h-[100dvh] w-72 max-w-[85vw] bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:pointer-events-none'
         }`}
       >
         {/* Top Header: Logo + New Chat */}
-        <div className="p-3.5 border-b border-[#F0EEE6] space-y-3">
+        <div className="p-4 border-b border-slate-100 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <img
@@ -277,14 +277,14 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
               onNewChat();
               if (window.innerWidth < 768) onCloseMobile();
             }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-sm font-semibold text-[#1C1917] shadow-2xs hover:border-[#D0CDC4] transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 border border-indigo-600 text-sm font-semibold text-white shadow-sm shadow-indigo-200 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-[#D97706]" />
+            <Plus className="w-4 h-4 text-white" />
             <span>New Chat</span>
           </button>
 
           {/* Quantum Utility Tools Row */}
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               onClick={() => {
                 onOpenMediaEngine?.();
