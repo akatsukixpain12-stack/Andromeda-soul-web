@@ -39,6 +39,7 @@ interface AndromedaSidebarProps {
   onOpenAuth?: () => void;
   onOpenMediaEngine?: () => void;
   onOpenTerminal?: () => void;
+  onOpenDiscord?: () => void;
   currentUser?: UserProfile | null;
   settings: UserSettings;
 }
@@ -58,6 +59,7 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
   onOpenAuth,
   onOpenMediaEngine,
   onOpenTerminal,
+  onOpenDiscord,
   currentUser,
   settings,
 }) => {
@@ -275,22 +277,30 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
           </button>
 
           {/* Quantum Utility Tools Row */}
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1">
             <button
               onClick={() => onOpenMediaEngine?.()}
-              className="flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
+              className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
               title="Creative Picture & Video Studio"
             >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              <span>Media Engine</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Media</span>
             </button>
             <button
               onClick={() => onOpenTerminal?.()}
-              className="flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
+              className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-white hover:bg-[#F7F6F0] border border-[#E2E0D8] text-[#1C1917] hover:border-[#D0CDC4] transition-all cursor-pointer truncate"
               title="Built-in Bash Shell Terminal"
             >
               <Terminal className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Bash Shell</span>
+              <span>Shell</span>
+            </button>
+            <button
+              onClick={() => onOpenDiscord?.()}
+              className="flex items-center justify-center gap-1 px-1.5 py-1.5 text-[10px] font-bold rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 text-[#5865F2] hover:border-[#5865F2]/50 transition-all cursor-pointer truncate"
+              title="Discord Bot & Autonomous Code Gateway (/discord)"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-[#5865F2] shrink-0" />
+              <span>Discord</span>
             </button>
           </div>
 

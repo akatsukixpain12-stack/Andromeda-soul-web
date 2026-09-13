@@ -21,10 +21,14 @@ import {
   HardDrive,
   Edit2,
   Share2,
+  Download,
+  FolderArchive,
+  MessageSquare,
 } from 'lucide-react';
 import { ChatMessage, ChatAttachment, AIModelOption, UserProfile } from '../types';
 import { AI_MODELS, findModelById } from '../data/models';
 import { UserAvatar } from './UserAvatar';
+import { createZipFromCode, triggerDownload } from '../lib/zipExporter';
 
 interface AndromedaChatAreaProps {
   messages: ChatMessage[];
@@ -42,6 +46,7 @@ interface AndromedaChatAreaProps {
   currentUser?: UserProfile | null;
   onEditMessage?: (content: string) => void;
   onOpenProvidersModal: () => void;
+  onOpenDiscord?: () => void;
   customModels?: AIModelOption[];
 }
 
@@ -58,6 +63,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   userName = 'User',
   currentUser,
   onOpenProvidersModal,
+  onOpenDiscord,
   customModels = [],
 }) => {
   const [inputText, setInputText] = useState('');
@@ -65,6 +71,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   const [isThinkingEnabled, setIsThinkingEnabled] = useState(true);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
+  const [zippingCodeKey, setZippingCodeKey] = useState<string | null>(null);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
 
@@ -88,12 +95,24 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
     }
   }, [inputText]);
 
-  // Handle Form Submit
+  // Handle Form Submit & Intercept /discord Command
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if ((!inputText.trim() && attachments.length === 0) || isStreaming) return;
+    const cleanPrompt = inputText.trim();
 
-    onSendMessage(inputText.trim(), attachments, isThinkingEnabled);
+    // Check for /discord command: opens Discord connect page directly without any extra steps
+    if (cleanPrompt.toLowerCase() === '/discord' || cleanPrompt.toLowerCase().startsWith('/discord ')) {
+      setInputText('');
+      if (textareaRef.current) textareaRef.current.style.height = '48px';
+      if (onOpenDiscord) {
+        onOpenDiscord();
+        return;
+      }
+    }
+
+    if ((!cleanPrompt && attachments.length === 0) || isStreaming) return;
+
+    onSendMessage(cleanPrompt, attachments, isThinkingEnabled);
     setInputText('');
     setAttachments([]);
     if (textareaRef.current) {
@@ -105,6 +124,38 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    }
+  };
+
+  // ZIP Exporter Handlers
+  const handleDownloadCodeZip = async (codeKey: string, code: string, lang: string) => {
+    setZippingCodeKey(codeKey);
+    try {
+      const result = await createZipFromCode(
+        `\`\`\`${lang}\n${code}\n\`\`\``,
+        `andromeda_${lang}_artifact`
+      );
+      if (result.success && result.blob && result.filename) {
+        triggerDownload(result.blob, result.filename);
+      }
+    } catch (err) {
+      console.error('Error generating code ZIP:', err);
+    } finally {
+      setZippingCodeKey(null);
+    }
+  };
+
+  const handleDownloadFullMessageZip = async (messageId: string, fullContent: string) => {
+    setZippingCodeKey(`full-${messageId}`);
+    try {
+      const result = await createZipFromCode(fullContent, `andromeda_project_${messageId.slice(0, 8)}`);
+      if (result.success && result.blob && result.filename) {
+        triggerDownload(result.blob, result.filename);
+      }
+    } catch (err) {
+      console.error('Error generating project ZIP:', err);
+    } finally {
+      setZippingCodeKey(null);
     }
   };
 
@@ -410,22 +461,33 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                                 <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
                                   {lang}
                                 </span>
-                                <button
-                                  onClick={() => handleCopyCode(codeKey, codeString)}
-                                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-100 cursor-pointer"
-                                >
-                                  {isCopied ? (
-                                    <>
-                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                      <span className="text-emerald-400">Copied</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3.5 h-3.5" />
-                                      <span>Copy code</span>
-                                    </>
-                                  )}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => handleDownloadCodeZip(codeKey, codeString, lang)}
+                                    disabled={zippingCodeKey === codeKey}
+                                    className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors cursor-pointer font-mono"
+                                    title="Download as standalone code ZIP"
+                                  >
+                                    <FolderArchive className="w-3.5 h-3.5" />
+                                    <span>{zippingCodeKey === codeKey ? 'Zipping...' : 'ZIP'}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleCopyCode(codeKey, codeString)}
+                                    className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-100 cursor-pointer"
+                                  >
+                                    {isCopied ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span className="text-emerald-400">Copied</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy code</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                               <pre className="p-3.5 text-xs font-mono overflow-x-auto leading-relaxed">
                                 <code>{children}</code>
@@ -471,38 +533,53 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                 )}
 
                 {/* Bottom Action Bar */}
-                <div className="flex items-center gap-1 pt-1 text-xs text-[#78716C]">
-                  <button
-                    onClick={() => handleCopyMessage(message.id, content)}
-                    className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
-                    title="Copy response"
-                  >
-                    {copiedMsgId === message.id ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                <div className="flex items-center justify-between pt-1 text-xs text-[#78716C]">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCopyMessage(message.id, content)}
+                      className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
+                      title="Copy response"
+                    >
+                      {copiedMsgId === message.id ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
 
-                  <button
-                    onClick={() => handleToggleSpeak(message.id, content)}
-                    className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
-                    title={speakingMsgId === message.id ? 'Stop audio' : 'Read aloud'}
-                  >
-                    {speakingMsgId === message.id ? (
-                      <VolumeX className="w-3.5 h-3.5 text-[#D97706]" />
-                    ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                    <button
+                      onClick={() => handleToggleSpeak(message.id, content)}
+                      className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
+                      title={speakingMsgId === message.id ? 'Stop audio' : 'Read aloud'}
+                    >
+                      {speakingMsgId === message.id ? (
+                        <VolumeX className="w-3.5 h-3.5 text-[#D97706]" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
 
-                  <button
-                    onClick={onRegenerate}
-                    className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
-                    title="Regenerate"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      onClick={onRegenerate}
+                      className="p-1.5 rounded-lg hover:bg-[#F0EEE6] hover:text-[#1C1917] transition-colors cursor-pointer"
+                      title="Regenerate"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* If the message contains code blocks, show quick project ZIP exporter */}
+                  {content.includes('```') && (
+                    <button
+                      onClick={() => handleDownloadFullMessageZip(message.id, content)}
+                      disabled={zippingCodeKey === `full-${message.id}`}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 text-xs font-semibold border border-amber-500/30 transition-all cursor-pointer font-mono"
+                      title="Export all generated files as a single downloadable ZIP project"
+                    >
+                      <FolderArchive className="w-3.5 h-3.5 text-amber-600" />
+                      <span>{zippingCodeKey === `full-${message.id}` ? 'Building ZIP...' : 'Export Code ZIP'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -6,6 +6,7 @@ import { ProvidersModal } from './components/ProvidersModal';
 import { AuthModal } from './components/AuthModal';
 import { ImageCreationModal } from './components/ImageCreationModal';
 import { ConsoleModal } from './components/ConsoleModal';
+import { DiscordModal } from './components/DiscordModal';
 import { Conversation, ChatMessage, ChatAttachment, UserSettings, UserProfile } from './types';
 import { DEFAULT_SETTINGS } from './data/defaultSettings';
 import { streamMultiProviderChat } from './lib/aiClient';
@@ -140,6 +141,7 @@ export function App() {
   const [isProvidersModalOpen, setIsProvidersModalOpen] = useState(false);
   const [isMediaEngineOpen, setIsMediaEngineOpen] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
 
   // Streaming State
   const [isStreaming, setIsStreaming] = useState(false);
@@ -582,6 +584,7 @@ export function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenMediaEngine={() => setIsMediaEngineOpen(true)}
         onOpenTerminal={() => setIsTerminalOpen(true)}
+        onOpenDiscord={() => setIsDiscordModalOpen(true)}
         currentUser={currentUser}
         settings={settings}
       />
@@ -625,6 +628,7 @@ export function App() {
           userName={currentUser?.name || settings.userName || 'User'}
           currentUser={currentUser}
           onOpenProvidersModal={() => setIsProvidersModalOpen(true)}
+          onOpenDiscord={() => setIsDiscordModalOpen(true)}
           customModels={settings.customModels}
         />
       </div>
@@ -676,6 +680,13 @@ export function App() {
       <ConsoleModal
         isOpen={isTerminalOpen}
         onClose={() => setIsTerminalOpen(false)}
+      />
+
+      {/* 7. Discord Bot & Autonomous Code Gateway (/discord) */}
+      <DiscordModal
+        isOpen={isDiscordModalOpen}
+        onClose={() => setIsDiscordModalOpen(false)}
+        onSendBotCommand={(cmd) => handleSendMessage(cmd)}
       />
     </div>
   );

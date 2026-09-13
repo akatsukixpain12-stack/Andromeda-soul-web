@@ -27,6 +27,7 @@ export interface GeneratedImage {
   prompt: string;
   aspectRatio: string;
   createdAt: number;
+  engine?: string;
 }
 
 export interface UserProfile {
