@@ -23,6 +23,9 @@ export const auth = getAuth(app);
 
 // Google Auth Provider
 export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 // Operational Types for Error Handlers
 export enum OperationType {

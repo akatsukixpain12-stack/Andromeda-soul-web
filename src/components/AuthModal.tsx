@@ -106,17 +106,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         signedInAt: Date.now(),
       };
 
-      // Sync profile with server session (best effort)
-      try {
-        await fetch('/api/auth/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
-      } catch {
-        // ignore
-      }
-
       setAuthSuccessNotice(true);
       setTimeout(() => setAuthSuccessNotice(false), 3000);
       notifyUserChange(profile);
@@ -140,16 +129,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         connectedAt: Date.now(),
       };
 
-      try {
-        await fetch('/api/auth/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
-      } catch {
-        // ignore
-      }
-
       notifyUserChange(profile);
       onClose();
     } finally {
@@ -160,15 +139,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSignOut = async () => {
     try {
       await firebaseSignOut(auth);
-      await fetch('/api/auth/profile', {
-        method: 'DELETE',
-      });
     } catch {
       // ignore
     }
     if (onLogout) onLogout();
     onClose();
-    window.location.reload();
   };
 
   return (

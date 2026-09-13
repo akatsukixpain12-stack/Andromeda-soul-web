@@ -59,9 +59,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleExportData = async (format: 'json' | 'markdown') => {
     try {
-      const res = await fetch('/api/conversations');
-      if (!res.ok) throw new Error('Failed to fetch conversations.');
-      const convs = await res.json();
+      let convs: any[] = [];
+      try {
+        const saved = localStorage.getItem('andromeda_guest_conversations_v4');
+        if (saved) convs = JSON.parse(saved);
+      } catch {
+        convs = [];
+      }
 
       let content = '';
       let filename = '';

@@ -228,98 +228,17 @@ async function startServer() {
     });
   });
 
-  // User Profile / Auth Endpoints
+  // User Profile / Auth Endpoints (Stateless, client-driven)
   app.get('/api/auth/profile', (req: Request, res: Response) => {
-    res.json(db.getUserProfile());
+    res.json({ id: 'usr_guest', name: 'Guest', email: '', provider: 'guest' });
   });
 
   app.post('/api/auth/profile', (req: Request, res: Response) => {
-    const updated = db.updateUserProfile(req.body);
-    res.json(updated);
+    res.json(req.body || { provider: 'guest' });
   });
 
   app.delete('/api/auth/profile', (req: Request, res: Response) => {
-    db.updateUserProfile({ id: 'usr_guest', name: 'Guest Creator', email: '', provider: 'guest', avatar: '' });
     res.json({ success: true });
-  });
-
-  // Google OAuth 2.0 Start
-  app.get('/api/auth/google/start', (req: Request, res: Response) => {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
-
-    if (!clientId) {
-      return res.status(400).send(`
-        <html>
-          <body style="font-family:sans-serif; padding: 40px; text-align: center;">
-            <h2>Google OAuth Not Configured</h2>
-            <p>Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment secrets or .env file.</p>
-            <a href="/" style="color: #2563eb; text-decoration: underline;">Return to App</a>
-          </body>
-        </html>
-      `);
-    }
-
-    const state = crypto.randomBytes(32).toString('hex');
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&prompt=select_account&state=${state}`;
-    res.redirect(authUrl);
-  });
-
-  // Google OAuth 2.0 Callback
-  app.get('/api/auth/google/callback', async (req: Request, res: Response) => {
-    const { code } = req.query;
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
-
-    if (!code || !clientId || !clientSecret) {
-      return res.redirect('/?auth_error=missing_credentials');
-    }
-
-    try {
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code: String(code),
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-        }),
-      });
-
-      if (!tokenRes.ok) {
-        throw new Error('Failed to exchange authorization code with Google');
-      }
-
-      const tokenData = await tokenRes.json();
-      const accessToken = tokenData.access_token;
-
-      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (!userRes.ok) {
-        throw new Error('Failed to fetch user profile from Google');
-      }
-
-      const googleUser = await userRes.json();
-      const userProfile = {
-        id: `usr_google_${googleUser.sub || Date.now()}`,
-        name: googleUser.name || 'Google User',
-        email: googleUser.email || '',
-        avatar: googleUser.picture || '',
-        provider: 'google' as const,
-        connectedAt: Date.now(),
-      };
-
-      db.updateUserProfile(userProfile);
-      res.redirect('/?auth_success=true');
-    } catch (err: any) {
-      console.error('Google OAuth callback error:', err);
-      res.redirect('/?auth_error=' + encodeURIComponent(err.message));
-    }
   });
 
   // GitHub OAuth Start
@@ -410,23 +329,20 @@ async function startServer() {
     res.json({ models: GEMINI_MODELS });
   });
 
-  // Conversations CRUD
+  // Conversations (Stateless - Conversations are isolated per user on the client / Firebase)
   app.get('/api/conversations', (req: Request, res: Response) => {
-    res.json(db.getConversations());
+    res.json([]);
   });
 
   app.post('/api/conversations', (req: Request, res: Response) => {
-    const conv = db.saveConversation(req.body);
-    res.json(conv);
+    res.json(req.body || {});
   });
 
   app.delete('/api/conversations/:id', (req: Request, res: Response) => {
-    db.deleteConversation(req.params.id);
     res.json({ success: true });
   });
 
   app.delete('/api/conversations', (req: Request, res: Response) => {
-    db.clearAllConversations();
     res.json({ success: true });
   });
 
@@ -1036,16 +952,6 @@ npm start
   app.delete('/api/projects/:id', (req: Request, res: Response) => {
     db.deleteProject(req.params.id);
     res.json({ success: true });
-  });
-
-  // --- USER AUTH PROFILE (GOOGLE / APPLE) ---
-  app.get('/api/auth/profile', (req: Request, res: Response) => {
-    res.json(db.getUserProfile());
-  });
-
-  app.post('/api/auth/profile', (req: Request, res: Response) => {
-    const updated = db.updateUserProfile(req.body);
-    res.json(updated);
   });
 
   // --- PROJECT PRESETS & PYTORCH ARCHITECTURE ---

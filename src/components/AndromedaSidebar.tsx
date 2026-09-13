@@ -447,22 +447,22 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
             title={currentUser && currentUser.provider !== 'guest' ? 'Manage Account' : 'Sign in with Google'}
           >
             <UserAvatar
-              name={currentUser?.name || settings.userName}
-              email={currentUser?.email || settings.userEmail}
-              avatar={currentUser?.avatar || settings.userAvatar}
+              name={currentUser?.name || 'Guest Creator'}
+              email={currentUser?.email || ''}
+              avatar={currentUser?.avatar || ''}
               size="md"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
                 <span className="text-xs font-semibold text-[#1C1917] block truncate">
-                  {currentUser?.name || settings.userName || 'Creator'}
+                  {currentUser?.name || 'Guest Creator'}
                 </span>
                 {currentUser && currentUser.provider === 'google' && (
                   <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                 )}
               </div>
               <span className="text-[10px] text-[#78716C] block truncate">
-                {currentUser?.email || (currentUser?.provider === 'google' ? 'Google Account' : 'Google Auth / Profile')}
+                {currentUser?.email || (currentUser?.provider === 'google' ? 'Google Account' : 'Guest Mode')}
               </span>
             </div>
           </button>

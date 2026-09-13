@@ -21,72 +21,17 @@ import {
 } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-const STORAGE_KEY_CONVERSATIONS = 'andromeda_conversations_v3';
-const STORAGE_KEY_SETTINGS = 'andromeda_settings_v3';
-const STORAGE_KEY_USER_PROFILE = 'andromeda_user_profile_v3';
+const STORAGE_KEY_CONVERSATIONS = 'andromeda_guest_conversations_v4';
+const STORAGE_KEY_SETTINGS = 'andromeda_settings_v4';
+const STORAGE_KEY_USER_PROFILE = 'andromeda_user_profile_v4';
 
-const INITIAL_CONVERSATION: Conversation = {
-  id: 'welcome-andromeda-1',
-  title: 'Welcome to Andromeda Sovereign Studio',
-  messages: [
-    {
-      id: 'msg-welcome-user',
-      role: 'user',
-      content: 'Can you show me how Andromeda supports Google Auth, Andromeda Soul 1 uncapped intelligence, and multi-provider models?',
-      timestamp: Date.now() - 60000,
-    },
-    {
-      id: 'msg-welcome-assistant',
-      role: 'assistant',
-      model: 'Andromeda Soul 1 (Uncapped)',
-      thought: `System Initialization & Sovereign Protocol Check:
-1. Active Persona: Andromeda Soul 1 (Frontier Uncapped Intelligence, Master Software Architect).
-2. Connected Auth: Google Sign-In & Sovereign Local Storage Session.
-3. Multi-Provider Router ready:
-   - Andromeda Soul 1: Uncapped frontier architecture & reasoning
-   - Google Gemini 2.5 Flash: Free tier, ultra-low latency & 1M context
-   - Andromeda Sonnet 3.7: Extended chain-of-thought thinking
-   - Ollama Localhost: 100% Free & private offline models (DeepSeek-R1, Llama 3.2)
-   - LM Studio: Localhost:1234 OpenAI-compatible backend.`,
-      content: `### Welcome to Andromeda Sovereign AI Studio
-
-Andromeda provides a high-performance, distraction-free environment combining **Frontier Uncapped AI** with **Google Authentication** and unified multi-provider routing (Gemini, Claude, and 100% free local models with Ollama and LM Studio).
-
----
-
-### Key Capabilities
-
-| Provider & Model | Intelligence Tier | Connectivity | Key Features |
-| :--- | :--- | :--- | :--- |
-| 🚀 **Andromeda Soul 1** | **Frontier Uncapped** | Cloud & Sovereign Node | Deep reasoning, PyTorch models, full-stack architecture |
-| ⚡ **Google Gemini 2.5 Flash** | **Free Tier (Google)** | Cloud API | Ultra-low latency, multimodal, 1M context token window |
-| 🧠 **Claude 3.7 Sonnet** | **Extended Thinking** | API & CoT Stream | Deep step-by-step reasoning traces & analytical proofs |
-| 🦙 **Ollama Local** | **100% Free & Offline** | \`http://localhost:11434\` | Zero token fees, private offline models (\`deepseek-r1:8b\`, \`llama3.2\`) |
-| 🔮 **LM Studio** | **100% Free Local** | \`http://localhost:1234/v1\` | High-speed local GGUF inference |
-
----
-
-### Google Authentication
-Click **Google Auth** in the top navigation bar or the user profile button in the sidebar to authenticate with your Google account. Your session and sovereign workspace settings will be safely synchronized.
-
-### Running Local Ollama (Free):
-If you would like to run offline models locally on your machine:
-\`\`\`bash
-# Start Ollama with browser CORS enabled
-OLLAMA_ORIGINS="*" ollama serve
-
-# Pull and run DeepSeek-R1 or Llama 3.2
-ollama run deepseek-r1:8b
-\`\`\`
-
-How can Andromeda assist your engineering and research today?`,
-      timestamp: Date.now() - 30000,
-    },
-  ],
-  createdAt: Date.now() - 60000,
-  updatedAt: Date.now() - 30000,
-  pinned: true,
-};
+const createDefaultConversation = (): Conversation => ({
+  id: `chat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+  title: 'New Conversation',
+  messages: [],
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+});
 
 export function App() {
   // Load settings
@@ -99,35 +44,28 @@ export function App() {
     }
   });
 
-  // Load User Profile / Google Auth
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+  // User Profile / Firebase Auth State (Strictly client-isolated)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Conversations State
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
+      const saved = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {
       // fallback
     }
-    return null;
+    return [createDefaultConversation()];
   });
 
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  // Load conversations
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
-      return saved ? JSON.parse(saved) : [INITIAL_CONVERSATION];
-    } catch {
-      return [INITIAL_CONVERSATION];
-    }
+  const [activeConversationId, setActiveConversationId] = useState<string>(() => {
+    return conversations[0]?.id || `chat-${Date.now()}`;
   });
-
-  const [activeConversationId, setActiveConversationId] = useState<string>(
-    conversations[0]?.id || INITIAL_CONVERSATION.id
-  );
 
   const [selectedModelId, setSelectedModelId] = useState<string>(
     settings.defaultModelId || 'andromeda-soul-1'
@@ -150,14 +88,16 @@ export function App() {
   const [streamingThought, setStreamingThought] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Save to localStorage
+  // Persist guest conversations to localStorage only when user is NOT signed in
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
-    } catch (e) {
-      console.warn('Failed to persist conversations:', e);
+    if (!currentUser || currentUser.provider === 'guest') {
+      try {
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+      } catch (e) {
+        console.warn('Failed to persist guest conversations:', e);
+      }
     }
-  }, [conversations]);
+  }, [conversations, currentUser]);
 
   useEffect(() => {
     try {
@@ -167,19 +107,7 @@ export function App() {
     }
   }, [settings]);
 
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(currentUser));
-      } else {
-        localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
-      }
-    } catch (e) {
-      console.warn('Failed to persist user profile:', e);
-    }
-  }, [currentUser]);
-
-  // Firebase Auth Listener
+  // Client Firebase Auth Listener - strictly local to this browser
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthReady(true);
@@ -190,27 +118,50 @@ export function App() {
           name: user.displayName || 'Andromeda Creator',
           avatar: user.photoURL || '',
           provider: 'google',
-          signedInAt: Date.now()
+          signedInAt: Date.now(),
         };
         setCurrentUser(profile);
         dbSaveUserProfile(user.uid, profile);
       } else {
-        // If not authenticated in Firebase and currentUser was previously marked google, reset to null
-        setCurrentUser((prev) => (prev?.provider === 'google' ? null : prev));
+        // Explicitly signed out or new guest visitor
+        setCurrentUser(null);
+        const fresh = createDefaultConversation();
+        setConversations([fresh]);
+        setActiveConversationId(fresh.id);
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // Firebase Firestore real-time sync for Conversations list
+  // One-time cleanup of any legacy keys from previous app versions
   useEffect(() => {
-    if (!isAuthReady || !currentUser || currentUser.provider === 'guest' || !auth.currentUser || auth.currentUser.uid !== currentUser.id) {
+    try {
+      const legacyKeys = [
+        'andromeda_conversations_v1',
+        'andromeda_conversations_v2',
+        'andromeda_conversations_v3',
+        'andromeda_user_profile_v1',
+        'andromeda_user_profile_v2',
+        'andromeda_user_profile_v3',
+      ];
+      legacyKeys.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Firebase Firestore real-time sync for Conversations list (ONLY when signed in with Firebase)
+  useEffect(() => {
+    if (!isAuthReady || !currentUser || currentUser.provider !== 'google' || !auth.currentUser || auth.currentUser.uid !== currentUser.id) {
       return;
     }
 
     const unsubscribe = dbSubscribeConversations(currentUser.id, (list) => {
       if (list.length === 0) {
-        dbSaveConversation(currentUser.id, INITIAL_CONVERSATION);
+        const fresh = createDefaultConversation();
+        setConversations([fresh]);
+        setActiveConversationId(fresh.id);
+        dbSaveConversation(currentUser.id, fresh);
       } else {
         setConversations(list);
         if (!list.some(c => c.id === activeConversationId)) {
@@ -223,35 +174,15 @@ export function App() {
     };
   }, [currentUser, isAuthReady]);
 
-  // Sync settings to Firestore
+  // Sync settings to Firestore for signed in users
   useEffect(() => {
-    if (isAuthReady && currentUser && currentUser.provider !== 'guest' && auth.currentUser && auth.currentUser.uid === currentUser.id) {
+    if (isAuthReady && currentUser && currentUser.provider === 'google' && auth.currentUser && auth.currentUser.uid === currentUser.id) {
       dbSaveUserSettings(currentUser.id, settings);
     }
   }, [settings, currentUser, isAuthReady]);
 
-  // Real OAuth synchronization & URL callback listener
+  // URL callback parameter cleanup
   useEffect(() => {
-    const fetchServerProfile = async () => {
-      try {
-        const res = await fetch('/api/auth/profile');
-        if (res.ok) {
-          const profile = await res.json();
-          // If server profile is guest or custom profile, only set if no active Firebase user
-          if (profile && profile.id && !auth.currentUser) {
-            if (profile.provider === 'guest') {
-              setCurrentUser(profile);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Could not sync profile with server:', err);
-      }
-    };
-
-    fetchServerProfile();
-
-    // Check for callback parameters
     const params = new URLSearchParams(window.location.search);
     const authSuccess = params.get('auth_success');
     const authError = params.get('auth_error');
@@ -259,19 +190,15 @@ export function App() {
     const githubError = params.get('github_error');
     const githubUser = params.get('username');
 
-    if (authSuccess === 'true') {
-      fetchServerProfile();
-      // Clean query params
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (authError) {
-      console.error('Google Auth callback error:', authError);
-      alert(`Google Authentication Failed: ${authError}`);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (githubSuccess === 'true') {
-      alert(`Successfully connected to GitHub account: ${githubUser || 'connected'}`);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (githubError) {
-      alert(`GitHub connection failed: ${githubError}`);
+    if (authSuccess === 'true' || authError || githubSuccess === 'true' || githubError) {
+      if (authError) {
+        console.error('Google Auth callback error:', authError);
+        alert(`Google Authentication Failed: ${authError}`);
+      } else if (githubSuccess === 'true') {
+        alert(`Successfully connected to GitHub account: ${githubUser || 'connected'}`);
+      } else if (githubError) {
+        alert(`GitHub connection failed: ${githubError}`);
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -636,7 +563,7 @@ export function App() {
           onNewChat={handleNewChat}
           selectedModelId={selectedModelId}
           onSelectModel={setSelectedModelId}
-          userName={currentUser?.name || settings.userName || 'User'}
+          userName={currentUser?.name || 'Creator'}
           currentUser={currentUser}
           onOpenProvidersModal={() => setIsProvidersModalOpen(true)}
           onOpenDiscord={() => setIsDiscordModalOpen(true)}
@@ -659,15 +586,25 @@ export function App() {
         currentUser={currentUser}
         onLoginSuccess={(profile) => {
           setCurrentUser(profile);
-          setSettings((prev) => ({
-            ...prev,
-            userName: profile.name,
-            userEmail: profile.email,
-            userAvatar: profile.avatar,
-          }));
         }}
         onLogout={() => {
           setCurrentUser(null);
+          const fresh = createDefaultConversation();
+          setConversations([fresh]);
+          setActiveConversationId(fresh.id);
+          setSettings((prev) => {
+            const next = { ...prev };
+            delete next.userEmail;
+            delete next.userName;
+            delete next.userAvatar;
+            return next;
+          });
+          try {
+            localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+            localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
+          } catch {
+            // ignore
+          }
         }}
       />
 

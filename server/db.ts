@@ -5,9 +5,9 @@ import { Conversation, UserSettings, DiscordBotConfig, CustomApiConfig, UserProf
 const DATA_DIR = path.join(process.cwd(), 'data');
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  id: 'usr_guest_default',
-  name: 'Developer (Andromeda Core)',
-  email: 'developer@andromeda.local',
+  id: 'usr_guest',
+  name: 'Guest',
+  email: '',
   provider: 'guest',
   signedInAt: Date.now(),
 };
@@ -214,44 +214,30 @@ class Database {
     return this.getCustomApiConfig(true);
   }
 
+  // Conversations are strictly client-side & user-isolated (Firebase/Browser local), never saved to server disk
   getConversations(): Conversation[] {
-    return this.readJSON<Conversation[]>(this.conversationsFile, []);
+    return [];
   }
 
   saveConversation(conv: Conversation): Conversation {
-    const list = this.getConversations();
-    const index = list.findIndex((c) => c.id === conv.id);
-    if (index >= 0) {
-      list[index] = { ...conv, updatedAt: Date.now() };
-    } else {
-      list.unshift({ ...conv, updatedAt: Date.now() });
-    }
-    this.writeJSON(this.conversationsFile, list);
     return conv;
   }
 
-  deleteConversation(id: string): boolean {
-    const list = this.getConversations();
-    const filtered = list.filter((c) => c.id !== id);
-    this.writeJSON(this.conversationsFile, filtered);
+  deleteConversation(_id: string): boolean {
     return true;
   }
 
   clearAllConversations(): boolean {
-    this.writeJSON(this.conversationsFile, []);
     return true;
   }
 
-  // --- USER PROFILE & AUTH (GOOGLE / APPLE) ---
+  // --- USER PROFILE & AUTH (Stateless guest fallback, never persisted across users) ---
   getUserProfile(): UserProfile {
-    return this.readJSON<UserProfile>(this.profileFile, DEFAULT_USER_PROFILE);
+    return { ...DEFAULT_USER_PROFILE, id: 'usr_guest', name: 'Guest', email: '', provider: 'guest' };
   }
 
   updateUserProfile(profile: Partial<UserProfile>): UserProfile {
-    const current = this.getUserProfile();
-    const updated: UserProfile = { ...current, ...profile, signedInAt: Date.now() };
-    this.writeJSON(this.profileFile, updated);
-    return updated;
+    return { ...DEFAULT_USER_PROFILE, ...profile, provider: profile.provider || 'guest' };
   }
 
   // --- PROJECTS ---
