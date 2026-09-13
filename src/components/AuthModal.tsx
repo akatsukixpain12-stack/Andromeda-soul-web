@@ -389,7 +389,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="pt-3 border-t border-[#F0EEE6] flex items-start gap-2.5 text-[11px] text-[#78716C] leading-relaxed">
             <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
             <span>
-              Your Google identity is securely saved locally and synchronized. No random stock photos are ever displayed.
+              Privacy mode is on: Google sign-in is kept only in this browser tab, and chats are isolated per account. Sign out before handing over this tab.
             </span>
           </div>
         </div>
