@@ -58,6 +58,28 @@ export const GEMINI_MODELS: GeminiModel[] = [
     intelligence: 'High',
   },
   {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    provider: 'gemini',
+    providerLabel: 'Google Gemini',
+    description: 'Reliable high-throughput model with high availability and fast latency.',
+    badge: 'Stable',
+    isFree: true,
+    speed: 'Fast',
+    intelligence: 'High',
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash',
+    provider: 'gemini',
+    providerLabel: 'Google Gemini',
+    description: 'Ultra-low latency legacy flash model with robust fallback uptime.',
+    badge: 'Reliable',
+    isFree: true,
+    speed: 'Instant',
+    intelligence: 'Standard',
+  },
+  {
     id: 'gemini-3.6-pro',
     name: 'Gemini 3.6 Pro',
     provider: 'gemini',
@@ -1755,13 +1777,13 @@ npm start
       let candidateModels: string[] = [];
 
       if (isAndromeda) {
-        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro'];
+        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
       } else if (validModel === 'gemini-3.6-flash') {
-        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro'];
+        candidateModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.6-pro', 'gemini-2.0-flash'];
       } else if (validModel === 'gemini-3.6-pro') {
-        candidateModels = ['gemini-3.6-pro', 'gemini-3.6-flash'];
+        candidateModels = ['gemini-3.6-pro', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
       } else {
-        candidateModels = [validModel, 'gemini-3.6-flash', 'gemini-3.6-pro'];
+        candidateModels = [validModel, 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.6-pro', 'gemini-2.0-flash'];
       }
 
       // Prepare secret list for full token leak protection
