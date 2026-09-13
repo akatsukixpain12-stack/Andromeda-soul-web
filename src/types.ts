@@ -83,7 +83,7 @@ export interface Conversation {
   projectId?: string;
 }
 
-export type AIProvider = 'gemini' | 'claude' | 'ollama' | 'lmstudio' | 'groq' | 'openrouter';
+export type AIProvider = 'gemini' | 'andromeda' | 'ollama' | 'lmstudio' | 'groq' | 'openrouter';
 
 export interface AIModelOption {
   id: string;

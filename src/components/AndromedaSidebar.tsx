@@ -236,7 +236,7 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
       )}
 
       <aside
-        id="claude-sidebar"
+        id="andromeda-sidebar"
         className={`fixed md:sticky top-0 left-0 z-40 h-screen w-72 bg-[#FBFBFA] border-r border-[#EAE8E2] flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:pointer-events-none'
         }`}
@@ -413,7 +413,7 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
             <div className="p-1.5 rounded-lg bg-white border border-[#E5E3DB] flex items-center gap-1.5 text-[#292524]">
               <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <div className="truncate">
-                <span className="font-semibold block truncate">Claude Style</span>
+                <span className="font-semibold block truncate">Andromeda Style</span>
                 <span className="text-[10px] text-amber-600 block">Thinking</span>
               </div>
             </div>

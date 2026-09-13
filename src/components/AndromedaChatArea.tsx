@@ -183,7 +183,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
 
   const getProviderIcon = (provider?: string) => {
     switch (provider) {
-      case 'claude':
+      case 'andromeda':
         return <Flame className="w-4 h-4 text-amber-600" />;
       case 'ollama':
         return <Cpu className="w-4 h-4 text-emerald-600" />;
@@ -228,7 +228,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                 </h1>
                 <p className="text-sm text-[#78716C] leading-relaxed">
                   Welcome to <strong>Andromeda Sovereign AI Studio</strong>. Equipped with{' '}
-                  <strong>Andromeda Soul 1</strong> (Frontier Uncapped), Google Gemini 2.5 Flash, Anthropic Claude thinking, and 100% free local models with Ollama & LM Studio.
+                  <strong>Andromeda Soul 1</strong> (Frontier Uncapped), Google Gemini 2.5 Flash, Andromeda reasoning, and 100% free local models with Ollama & LM Studio.
                 </p>
               </div>
 
@@ -362,7 +362,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                   </span>
                 </div>
 
-                {/* Collapsible Thinking Accordion (Claude 3.7 / Gemini Thinking) */}
+                {/* Collapsible Thinking Accordion (Andromeda / Gemini Thinking) */}
                 {effectiveThought && (
                   <div className="thought-container overflow-hidden border border-[#E5E3DB] rounded-xl shadow-2xs">
                     <button
@@ -459,10 +459,10 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                         🚀 Switch to Andromeda Soul 1 (Frontier Uncapped)
                       </button>
                       <button
-                        onClick={() => onSelectModel('gemini-2.5-flash')}
+                        onClick={() => onSelectModel('gemini-3.6-flash')}
                         className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                       >
-                        ⚡ Switch to Google Gemini 2.5 Flash (Free Tier)
+                        ⚡ Switch to Google Gemini 3.6 Flash (Free Tier)
                       </button>
                     </div>
                   </div>
@@ -550,7 +550,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
         <div className="max-w-3xl mx-auto">
           <div
             onClick={() => textareaRef.current?.focus()}
-            className="claude-input-pill rounded-2xl p-2.5 sm:p-3 transition-all cursor-text focus-within:ring-2 focus-within:ring-amber-500/20"
+            className="andromeda-input-pill rounded-2xl p-2.5 sm:p-3 transition-all cursor-text focus-within:ring-2 focus-within:ring-amber-500/20"
           >
             {/* Attachment preview chips */}
             {attachments.length > 0 && (
@@ -583,11 +583,11 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
             {/* Input Textarea - always spacious and tap-friendly on mobile */}
             <textarea
               ref={textareaRef}
-              id="claude-chat-textarea"
+              id="andromeda-chat-textarea"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Message ${currentModel.name} (Gemini, Claude, Ollama)...`}
+              placeholder={`Message ${currentModel.name} (Gemini, Andromeda, Ollama)...`}
               rows={2}
               className="w-full bg-transparent resize-none border-none outline-none text-[15px] sm:text-sm text-[#1C1917] placeholder:text-[#8C887B] placeholder:opacity-100 leading-relaxed min-h-[48px] max-h-48 px-2 py-1 block cursor-text font-sans"
             />

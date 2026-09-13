@@ -110,11 +110,11 @@ export async function streamChatCompletion({
       const ai = new GoogleGenAI({ apiKey: clientApiKey.trim() });
       
       // Determine Gemini model alias
-      let targetModel = 'gemini-2.5-flash';
+      let targetModel = 'gemini-3.6-flash';
       if (modelId.includes('3.8') || modelId.includes('soul')) {
-        targetModel = 'gemini-2.5-flash';
-      } else if (modelId.includes('lite')) {
-        targetModel = 'gemini-2.5-flash-lite';
+        targetModel = 'gemini-3.6-flash';
+      } else if (modelId.includes('lite') || modelId.includes('flash-lite')) {
+        targetModel = 'gemini-3.6-flash';
       }
 
       const contents: any[] = [];

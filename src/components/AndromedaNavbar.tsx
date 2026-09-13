@@ -80,7 +80,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
     switch (provider) {
       case 'gemini':
         return <Sparkles className="w-4 h-4 text-blue-600" />;
-      case 'claude':
+      case 'andromeda':
         return <Flame className="w-4 h-4 text-amber-600" />;
       case 'ollama':
         return <Cpu className="w-4 h-4 text-emerald-600" />;
@@ -184,7 +184,7 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
                 {/* Providers groups */}
                 {[
                   { key: 'gemini', title: 'Google Gemini (Free Tier / Multimodal)' },
-                  { key: 'claude', title: 'Anthropic Claude (Extended Thinking)' },
+                  { key: 'andromeda', title: 'Andromeda Intelligence (Extended Thinking)' },
                   { key: 'ollama', title: 'Ollama (100% Free & Localhost)' },
                   { key: 'lmstudio', title: 'LM Studio (100% Free & Offline)' },
                   { key: 'groq', title: 'Groq & Cloud (Free Tier Available)' },

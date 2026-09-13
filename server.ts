@@ -47,19 +47,8 @@ export const GEMINI_MODELS: GeminiModel[] = [
     isDefault: true,
   },
   {
-    id: 'gemini-3.5-flash-search',
-    name: 'Gemini 3.5 Flash (Search)',
-    provider: 'gemini',
-    providerLabel: 'Google Gemini',
-    description: 'Real-time search grounded intelligence.',
-    badge: 'Search',
-    isFree: true,
-    speed: 'Fast',
-    intelligence: 'High',
-  },
-  {
-    id: 'gemini-3.8-flash',
-    name: 'Gemini 3.8 Flash',
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
     description: 'Smart, high-capability multimodal model for reasoning, coding, and general tasks.',
@@ -69,23 +58,23 @@ export const GEMINI_MODELS: GeminiModel[] = [
     intelligence: 'High',
   },
   {
-    id: 'gemini-3.1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite',
+    id: 'gemini-3.6-pro',
+    name: 'Gemini 3.6 Pro',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
-    description: 'Optimized for lightning-fast latency, instant summaries, and lightweight tasks.',
-    badge: 'Ultra Fast',
+    description: 'Advanced reasoning model for complex code synthesis and mathematical proofs.',
+    badge: 'Pro',
     isFree: true,
-    speed: 'Instant',
-    intelligence: 'Standard',
+    speed: 'Balanced',
+    intelligence: 'Frontier',
   },
   {
-    id: 'gemini-flash-latest',
-    name: 'Gemini Flash Latest',
+    id: 'gemini-3.5-flash-search',
+    name: 'Gemini 3.5 Flash (Search)',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
-    description: 'Continuous frontier release with dynamic capability advancements.',
-    badge: 'Frontier',
+    description: 'Real-time search grounded intelligence.',
+    badge: 'Search',
     isFree: true,
     speed: 'Fast',
     intelligence: 'High',
@@ -585,7 +574,7 @@ client.on('interactionCreate', async (interaction) => {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: {
           systemInstruction:
@@ -1658,7 +1647,7 @@ npm start
     const {
       prompt,
       history = [],
-      modelId = 'gemini-3.8-flash',
+      modelId = 'gemini-3.6-flash',
       systemInstruction,
       enableThinking = true,
       attachments = [],
@@ -1688,7 +1677,7 @@ npm start
     }
 
     // Validate and pick model
-    const validModel = GEMINI_MODELS.find((m) => m.id === modelId)?.id || 'gemini-3.8-flash';
+    const validModel = GEMINI_MODELS.find((m) => m.id === modelId)?.id || 'gemini-3.6-flash';
 
     try {
       // Build multi-turn contents for @google/genai
@@ -1766,15 +1755,13 @@ npm start
       let candidateModels: string[] = [];
 
       if (isAndromeda) {
-        candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
-      } else if (validModel === 'gemini-3.8-flash') {
-        candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
-      } else if (validModel === 'gemini-3.1-flash-lite') {
-        candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
-      } else if (validModel === 'gemini-flash-latest') {
-        candidateModels = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro'];
+      } else if (validModel === 'gemini-3.6-flash') {
+        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro'];
+      } else if (validModel === 'gemini-3.6-pro') {
+        candidateModels = ['gemini-3.6-pro', 'gemini-3.6-flash'];
       } else {
-        candidateModels = [validModel, 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+        candidateModels = [validModel, 'gemini-3.6-flash', 'gemini-3.6-pro'];
       }
 
       // Prepare secret list for full token leak protection
@@ -1807,7 +1794,7 @@ ${effectiveSystemInstruction}`;
 
       for (const candidate of candidateModels) {
         // Attempt generation for candidate (up to 2 attempts for transient 503/429 errors)
-        const isPrimary = isAndromeda ? candidate === 'gemini-3.8-flash' : candidate === validModel;
+        const isPrimary = isAndromeda ? candidate === 'gemini-3.6-flash' : candidate === validModel;
         const maxAttempts = isPrimary ? 2 : 1;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -1824,7 +1811,7 @@ ${effectiveSystemInstruction}`;
               }
 
               const responseStream = await ai.interactions.create({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 input: customInput,
                 tools: [{ type: 'google_search' }],
                 stream: true,
@@ -1845,8 +1832,8 @@ ${effectiveSystemInstruction}`;
               if (effectiveSystemInstruction) {
                 config.systemInstruction = effectiveSystemInstruction;
               }
-              // Gemini 3.8 Flash supports HIGH thinking level
-              if ((enableThinking || isDeep100k) && candidate === 'gemini-3.8-flash') {
+              // Gemini 3.6 Flash / Pro supports thinking level
+              if ((enableThinking || isDeep100k) && (candidate === 'gemini-3.6-flash' || candidate === 'gemini-3.6-pro')) {
                 config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
               }
 
@@ -1860,8 +1847,8 @@ ${effectiveSystemInstruction}`;
 
               // If we had to switch to a fallback model due to high demand on the primary
               if (!isPrimary) {
-                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Gemini 3.8 Engine)' : validModel;
-                const fallbackName = candidate === 'gemini-3.1-flash-lite' ? 'Gemini 3.1 Flash Lite' : candidate;
+                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Gemini 3.6 Engine)' : validModel;
+                const fallbackName = candidate === 'gemini-3.6-flash' ? 'Gemini 3.6 Flash' : candidate;
                 sendEvent('chunk', {
                   text: `*(Engine notice: High demand detected. Dynamically routed through ${fallbackName})*\n\n`,
                 });

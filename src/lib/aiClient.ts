@@ -459,7 +459,7 @@ async function streamOpenAICompatible({
 }
 
 /**
- * Streams from Google Gemini (via server or client SDK) or Claude Persona
+ * Streams from Google Gemini (via server or client SDK) or Andromeda Persona
  */
 async function streamGeminiOrClaude({
   prompt,
@@ -486,12 +486,12 @@ async function streamGeminiOrClaude({
   onThought?: (thought: string) => void;
   signal?: AbortSignal;
 }): Promise<string> {
-  const isClaude = modelMeta.provider === 'claude';
+  const isAndromedaPersona = modelMeta.provider === 'andromeda';
   const effectiveThinking = enableThinking || modelMeta.supportsThinking || false;
 
   let effectiveSystemInstruction = systemInstruction;
-  if (isClaude) {
-    effectiveSystemInstruction = `You are Claude, a helpful, thoughtful, and articulate AI assistant created by Anthropic.
+  if (isAndromedaPersona) {
+    effectiveSystemInstruction = `You are Andromeda, an advanced sovereign AI assistant created in the Andromeda environment.
 You write in an elegant, clear, structured, and insightful manner.
 When responding to complex or analytical questions, provide deep reasoning and clear step-by-step explanations.
 For code, provide clean, idiomatic, and production-ready snippets with minimal unnecessary chatter.
@@ -591,7 +591,7 @@ ${systemInstruction ? `\nUser Instructions:\n${systemInstruction}` : ''}`;
   if (clientApiKey && clientApiKey.trim()) {
     try {
       const ai = new GoogleGenAI({ apiKey: clientApiKey.trim() });
-      const targetModel = 'gemini-2.5-flash';
+      const targetModel = 'gemini-3.6-flash';
 
       const contents: any[] = [];
       for (const msg of history.slice(-6)) {

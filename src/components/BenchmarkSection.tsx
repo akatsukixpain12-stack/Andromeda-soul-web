@@ -9,8 +9,8 @@ export const BenchmarkSection: React.FC = () => {
       label: 'Time-to-First-Token (TTFT)',
       andromeda: '14.2 ms',
       andromedaScore: 98,
-      claude35: '380 ms',
-      claudeScore: 35,
+      competitor1: '380 ms',
+      competitor1Score: 35,
       gpt4o: '420 ms',
       gptScore: 30,
       note: 'Ultra-low latency edge compilation',
@@ -19,8 +19,8 @@ export const BenchmarkSection: React.FC = () => {
       label: 'Sustained Throughput',
       andromeda: '148.4 tok/s',
       andromedaScore: 94,
-      claude35: '72.0 tok/s',
-      claudeScore: 48,
+      competitor1: '72.0 tok/s',
+      competitor1Score: 48,
       gpt4o: '68.5 tok/s',
       gptScore: 44,
       note: 'KV-cache streaming optimization',
@@ -29,8 +29,8 @@ export const BenchmarkSection: React.FC = () => {
       label: 'Context Retention (1M Tokens)',
       andromeda: '99.8% Needle',
       andromedaScore: 99,
-      claude35: '92.4% Needle',
-      claudeScore: 82,
+      competitor1: '92.4% Needle',
+      competitor1Score: 82,
       gpt4o: '88.1% Needle',
       gptScore: 78,
       note: 'Zero needle-in-a-haystack decay',
@@ -39,8 +39,8 @@ export const BenchmarkSection: React.FC = () => {
       label: 'Token Leakage Prevention',
       andromeda: '100% Guarded',
       andromedaScore: 100,
-      claude35: 'Unmonitored',
-      claudeScore: 15,
+      competitor1: 'Unmonitored',
+      competitor1Score: 15,
       gpt4o: 'Unmonitored',
       gptScore: 15,
       note: 'Hardware isolated entropy scanner',
@@ -108,16 +108,16 @@ export const BenchmarkSection: React.FC = () => {
                   <span className="w-20 text-right text-indigo-300 font-bold">{item.andromeda}</span>
                 </div>
 
-                {/* Claude 3.5 */}
+                {/* Standard Model 2 */}
                 <div className="flex items-center gap-3 opacity-60">
-                  <span className="w-24 text-zinc-400 truncate">Claude 3.5</span>
+                  <span className="w-24 text-zinc-400 truncate">Standard Sonnet</span>
                   <div className="flex-1 h-2 rounded-full bg-zinc-900 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-zinc-600 transition-all duration-1000"
-                      style={{ width: `${item.claudeScore}%` }}
+                      style={{ width: `${item.competitor1Score}%` }}
                     />
                   </div>
-                  <span className="w-20 text-right text-zinc-500">{item.claude35}</span>
+                  <span className="w-20 text-right text-zinc-500">{item.competitor1}</span>
                 </div>
 
                 {/* GPT-4o */}

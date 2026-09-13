@@ -44,7 +44,7 @@ const INITIAL_CONVERSATION: Conversation = {
 3. Multi-Provider Router ready:
    - Andromeda Soul 1: Uncapped frontier architecture & reasoning
    - Google Gemini 2.5 Flash: Free tier, ultra-low latency & 1M context
-   - Anthropic Claude 3.7: Extended chain-of-thought thinking
+   - Andromeda Sonnet 3.7: Extended chain-of-thought thinking
    - Ollama Localhost: 100% Free & private offline models (DeepSeek-R1, Llama 3.2)
    - LM Studio: Localhost:1234 OpenAI-compatible backend.`,
       content: `### Welcome to Andromeda Sovereign AI Studio
