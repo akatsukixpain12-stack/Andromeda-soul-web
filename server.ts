@@ -88,7 +88,7 @@ function getGeminiClient(): GoogleGenAI | null {
 export const GEMINI_MODELS: GeminiModel[] = [
   {
     id: 'andromeda-soul-1',
-    name: 'Andromeda Soul 1',
+    name: 'Andromeda Soul 1.0',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
     description: 'Sovereign intelligence with 800k token context limit, uncapped reasoning, image & video synthesis, and continuous Google Cloud auto-learning.',
@@ -157,10 +157,10 @@ export const GEMINI_MODELS: GeminiModel[] = [
   },
 ];
 
-const ANDROMEDA_SOUL_INSTRUCTION = `You are Andromeda Soul 1, the sovereign AI orchestration and agentic intelligence layer of the Andromeda environment.
+const ANDROMEDA_SOUL_INSTRUCTION = `You are Andromeda Soul 1.0, the sovereign AI orchestration and agentic intelligence layer of the Andromeda environment.
 
 [IDENTITY & ARCHITECTURE]
-- You are Andromeda Soul 1. You operate as a dedicated AI orchestration, planning, and task execution layer that sits above underlying foundation models (powered by Google Gemini 3.8 / Gemini Flash by default, with custom APIs and local PyTorch models supported).
+- You are Andromeda Soul 1.0. You operate as a dedicated AI orchestration, planning, and task execution layer that sits above underlying foundation models (powered by Google Gemini / Gemini Flash by default, with custom APIs and local PyTorch models supported).
 - You are transparent and honest: you are Andromeda's sovereign agent layer, orchestrating reasoning, task planning, and zero-leak security.
 - You have no artificial chat limits, message limits, or arbitrary constraints.
 
@@ -560,11 +560,11 @@ const commands = [
   new SlashCommandBuilder().setName('ping').setDescription('Replies with bot ping and latency stats'),
   new SlashCommandBuilder()
     .setName('ask')
-    .setDescription('Ask Andromeda Soul 1 for answers, code, or ideas')
+    .setDescription('Ask Andromeda Soul 1.0 for answers, code, or ideas')
     .addStringOption((option) =>
       option.setName('prompt').setDescription('Your question or task').setRequired(true)
     ),
-  new SlashCommandBuilder().setName('status').setDescription('Checks Andromeda Soul 1 operating state'),
+  new SlashCommandBuilder().setName('status').setDescription('Checks Andromeda Soul 1.0 operating state'),
 ].map((cmd) => cmd.toJSON());
 
 client.once('ready', async () => {
@@ -591,7 +591,7 @@ client.on('interactionCreate', async (interaction) => {
     });
   } else if (commandName === 'status') {
     await interaction.reply({
-      content: '🌌 **Andromeda Soul 1** — Operational\\nActive Intelligence: Google Gemini Frontier\\nStatus: All systems nominal.',
+      content: '🌌 **Andromeda Soul 1.0** — Operational\\nActive Intelligence: Google Gemini Frontier\\nStatus: All systems nominal.',
     });
   } else if (commandName === 'ask') {
     await interaction.deferReply();
@@ -609,7 +609,7 @@ client.on('interactionCreate', async (interaction) => {
         contents: prompt,
         config: {
           systemInstruction:
-            'You are Andromeda Soul 1, a helpful, brilliant, sovereign Discord AI assistant. Format your replies cleanly with Discord markdown (bold, lists, codeblocks). Keep answers informative and concise.',
+            'You are Andromeda Soul 1.0, a helpful, brilliant, sovereign Discord AI assistant. Format your replies cleanly with Discord markdown (bold, lists, codeblocks). Keep answers informative and concise.',
         },
       });
 
@@ -632,7 +632,7 @@ client.login(token);
         {
           name: 'andromeda-discord-bot',
           version: '1.0.0',
-          description: `${botName} created with Andromeda Soul 1`,
+          description: `${botName} created with Andromeda Soul 1.0`,
           type: 'module',
           main: 'index.js',
           scripts: {
@@ -662,7 +662,7 @@ PORT=3000
 dist/
 `,
       'README.md': `# ${botName} 🤖
-Powered by **Andromeda Soul 1** & **Google Gemini**
+Powered by **Andromeda Soul 1.0** & **Google Gemini**
 
 ## Quick Start Guide
 
@@ -689,7 +689,7 @@ npm start
 
 ## Available Slash Commands
 - \`/ping\` — Check bot latency & API gateway response
-- \`/ask [prompt]\` — Chat with Andromeda Soul 1 directly in Discord
+- \`/ask [prompt]\` — Chat with Andromeda Soul 1.0 directly in Discord
 - \`/status\` — View bot operational health
 `,
     };
@@ -741,7 +741,7 @@ npm start
       return res.json({
         author: 'Andromeda Bot',
         avatar: '🤖',
-        content: `🌌 **Andromeda Soul 1 — Sovereign Discord Bot Gateway**\n- **Engine**: Frontier Uncapped Reasoning\n- **Memory & Storage**: Google Cloud Server Connected\n- **Status**: Operational (All Guild Listeners Active)`,
+        content: `🌌 **Andromeda Soul 1.0 — Sovereign Discord Bot Gateway**\n- **Engine**: Frontier Uncapped Reasoning\n- **Memory & Storage**: Google Cloud Server Connected\n- **Status**: Operational (All Guild Listeners Active)`,
         timestamp: Date.now(),
       });
     }
@@ -835,7 +835,7 @@ npm start
           },
           body: JSON.stringify({
             name: repoName,
-            description: `Discord Bot engineered with Andromeda Soul 1`,
+            description: `Discord Bot engineered with Andromeda Soul 1.0`,
             private: false,
             auto_init: true,
           }),
@@ -888,7 +888,7 @@ npm start
               'User-Agent': 'Andromeda-OS',
             },
             body: JSON.stringify({
-              message: commitMessage || `Update ${filePath} from Andromeda Soul 1`,
+              message: commitMessage || `Update ${filePath} from Andromeda Soul 1.0`,
               content: Buffer.from(content as string, 'utf-8').toString('base64'),
               branch,
               ...(existingSha ? { sha: existingSha } : {}),
@@ -1287,7 +1287,7 @@ npm start
           },
           body: JSON.stringify({
             name: repoName,
-            description: `Engineered with Andromeda Soul 1`,
+            description: `Engineered with Andromeda Soul 1.0`,
             private: false,
             auto_init: true,
           }),
@@ -1343,7 +1343,7 @@ npm start
               'User-Agent': 'Andromeda-Soul-1',
             },
             body: JSON.stringify({
-              message: commitMessage || `Add ${fullDestPath} via Andromeda Soul 1`,
+              message: commitMessage || `Add ${fullDestPath} via Andromeda Soul 1.0`,
               content: Buffer.from(String(content), 'utf-8').toString('base64'),
               branch,
               ...(existingSha ? { sha: existingSha } : {}),

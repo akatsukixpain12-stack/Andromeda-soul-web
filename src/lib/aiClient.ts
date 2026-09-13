@@ -366,7 +366,7 @@ async function streamOllama({
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
 
-    const fallbackMessage = `⚠️ **Could Not Connect to Local Ollama**\n\nUnable to reach Ollama at \`${host}\`.\n\n### How to Run Ollama for Free:\n1. **Install Ollama** from [ollama.com](https://ollama.com)\n2. **Start the server** in terminal:\n   \`\`\`bash\n   ollama serve\n   \`\`\`\n3. **Pull and run model**:\n   \`\`\`bash\n   ollama run ${targetModel}\n   \`\`\`\n4. Enable browser access:\n   \`\`\`bash\n   OLLAMA_ORIGINS="*" ollama serve\n   \`\`\`\n\n*Or switch to **Andromeda Soul 1** or **Google Gemini** in the top model menu to chat immediately without running anything locally!*`;
+    const fallbackMessage = `⚠️ **Could Not Connect to Local Ollama**\n\nUnable to reach Ollama at \`${host}\`.\n\n### How to Run Ollama for Free:\n1. **Install Ollama** from [ollama.com](https://ollama.com)\n2. **Start the server** in terminal:\n   \`\`\`bash\n   ollama serve\n   \`\`\`\n3. **Pull and run model**:\n   \`\`\`bash\n   ollama run ${targetModel}\n   \`\`\`\n4. Enable browser access:\n   \`\`\`bash\n   OLLAMA_ORIGINS="*" ollama serve\n   \`\`\`\n\n*Or switch to **Andromeda Soul 1.0** or **Google Gemini** in the top model menu to chat immediately without running anything locally!*`;
 
     return streamTextSimulation(fallbackMessage, onToken, signal);
   }
@@ -466,7 +466,7 @@ async function streamLMStudio({
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
 
-    const fallback = `⚠️ **Could Not Connect to LM Studio Local Server**\n\nUnable to reach LM Studio at \`${host}\`.\n\n### How to Run Free Models in LM Studio:\n1. Open **LM Studio** on your computer.\n2. Download any open model (e.g., Llama 3.3, DeepSeek-R1, Mistral, Qwen).\n3. Click on the **Developer / Local Server** tab (<-> icon on the left).\n4. Click **Start Server** on port 1234.\n5. Ensure **CORS** is enabled in the LM Studio server settings.\n\n*Or switch to **Andromeda Soul 1** in the top menu for immediate instant chat!*`;
+    const fallback = `⚠️ **Could Not Connect to LM Studio Local Server**\n\nUnable to reach LM Studio at \`${host}\`.\n\n### How to Run Free Models in LM Studio:\n1. Open **LM Studio** on your computer.\n2. Download any open model (e.g., Llama 3.3, DeepSeek-R1, Mistral, Qwen).\n3. Click on the **Developer / Local Server** tab (<-> icon on the left).\n4. Click **Start Server** on port 1234.\n5. Ensure **CORS** is enabled in the LM Studio server settings.\n\n*Or switch to **Andromeda Soul 1.0** in the top menu for immediate instant chat!*`;
 
     return streamTextSimulation(fallback, onToken, signal);
   }
@@ -507,7 +507,7 @@ async function streamOpenAICompatible({
     endpoint.includes('api.mistral.ai');
 
   if (!apiKey && isDirectThirdParty && !endpoint.includes('free')) {
-    const msg = `⚠️ **${providerName} API Key Required**\n\nTo use **${modelName}** from ${providerName}, please configure your API key in **Settings > Providers & Keys**.\n\n*You can switch to **Andromeda Soul 1** or **Google Gemini** to chat for free right now without an API key!*`;
+    const msg = `⚠️ **${providerName} API Key Required**\n\nTo use **${modelName}** from ${providerName}, please configure your API key in **Settings > Providers & Keys**.\n\n*You can switch to **Andromeda Soul 1.0** or **Google Gemini** to chat for free right now without an API key!*`;
     return streamTextSimulation(msg, onToken, signal);
   }
 
@@ -611,7 +611,7 @@ async function streamOpenAICompatible({
     return accumulated;
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    const msg = `⚠️ **${providerName} Error**: ${err.message}\n\nPlease check your credentials in **Settings > Providers & Keys** or select **Andromeda Soul 1** for instant AI chat.`;
+    const msg = `⚠️ **${providerName} Error**: ${err.message}\n\nPlease check your credentials in **Settings > Providers & Keys** or select **Andromeda Soul 1.0** for instant AI chat.`;
     return streamTextSimulation(msg, onToken, signal);
   }
 }
@@ -641,7 +641,7 @@ async function streamAnthropic({
   signal?: AbortSignal;
 }): Promise<string> {
   if (!apiKey) {
-    const msg = `⚠️ **Anthropic Claude API Key Required**\n\nTo use **${modelName}**, please provide your Anthropic API key in **Settings > Providers & Keys** (from [console.anthropic.com](https://console.anthropic.com)).\n\n*Or select **Andromeda Soul 1** to chat immediately for free!*`;
+    const msg = `⚠️ **Anthropic Claude API Key Required**\n\nTo use **${modelName}**, please provide your Anthropic API key in **Settings > Providers & Keys** (from [console.anthropic.com](https://console.anthropic.com)).\n\n*Or select **Andromeda Soul 1.0** to chat immediately for free!*`;
     return streamTextSimulation(msg, onToken, signal);
   }
 
@@ -725,7 +725,7 @@ async function streamAnthropic({
     return accumulated;
   } catch (err: any) {
     if (err.name === 'AbortError') throw err;
-    const msg = `⚠️ **Anthropic Claude Error**: ${err.message}\n\nPlease check your key in **Settings > Providers & Keys** or select **Andromeda Soul 1**.`;
+    const msg = `⚠️ **Anthropic Claude Error**: ${err.message}\n\nPlease check your key in **Settings > Providers & Keys** or select **Andromeda Soul 1.0**.`;
     return streamTextSimulation(msg, onToken, signal);
   }
 }
@@ -899,7 +899,7 @@ async function streamGeminiOrClaude({
     }
   }
 
-  const errMsg = `⚠️ **Provider Connection Error**\n\nUnable to reach backend API or provider for **${modelMeta.name}** (${modelMeta.provider}). Please ensure your backend server is running, check your API keys in **Settings > Providers & Keys**, or select **Andromeda Soul 1** for instant cloud chat.`;
+  const errMsg = `⚠️ **Provider Connection Error**\n\nUnable to reach backend API or provider for **${modelMeta.name}** (${modelMeta.provider}). Please ensure your backend server is running, check your API keys in **Settings > Providers & Keys**, or select **Andromeda Soul 1.0** for instant cloud chat.`;
   return streamTextSimulation(errMsg, onToken, signal);
 }
 

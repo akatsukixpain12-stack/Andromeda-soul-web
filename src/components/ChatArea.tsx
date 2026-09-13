@@ -198,7 +198,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     const md = messages
       .map(
         (m) =>
-          `### ${m.role === 'user' ? 'User' : 'Andromeda Soul 1'}\n\n${m.content}\n\n---\n`
+          `### ${m.role === 'user' ? 'User' : 'Andromeda Soul 1.0'}\n\n${m.content}\n\n---\n`
       )
       .join('\n');
     navigator.clipboard.writeText(md);
@@ -302,7 +302,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 title="Click to rename conversation"
               >
                 <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                  {activeConversationTitle || 'Andromeda Soul 1'}
+                  {activeConversationTitle || 'Andromeda Soul 1.0'}
                 </span>
                 <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
@@ -508,7 +508,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           <div className="whitespace-pre-wrap">{msg.content}</div>
                         ) : (
                           <div className="space-y-3">
-                            {/* Andromeda Soul 1 100,000x Deep Thinking Trace */}
+                            {/* Andromeda Soul 1.0 100,000x Deep Thinking Trace */}
                             {(() => {
                               const { thought, content } = parseMessageContent(msg.content);
                               const isThoughtOpen = showThoughtMap[msg.id] ?? false;
@@ -700,7 +700,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   ) : (
                     <div className="flex items-center gap-2 text-slate-400 text-xs py-2">
                       <span className="w-2 h-2 rounded-full bg-violet-500 animate-ping" />
-                      <span>Andromeda Soul 1 Reasoning Active...</span>
+                      <span>Andromeda Soul 1.0 Reasoning Active...</span>
                     </div>
                   )}
                 </div>
@@ -785,7 +785,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Ask Andromeda Soul 1 anything, ${userName || 'Divine Johan'}...`}
+              placeholder={`Ask Andromeda Soul 1.0 anything, ${userName || 'Divine Johan'}...`}
               className="w-full px-4 pt-3 pb-2 max-h-44 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 bg-transparent resize-none focus:outline-hidden leading-relaxed"
             />
 
@@ -844,7 +844,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           {/* Footer Disclaimer */}
           <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">
-            Andromeda Soul 1 • Zero token leak protection active.
+            Andromeda Soul 1.0 • Zero token leak protection active.
           </p>
         </div>
       </div>

@@ -112,7 +112,7 @@ export const AgentsModal: React.FC<AgentsModalProps> = ({
                 Sovereign Agents
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Switch Andromeda Soul 1 into specialized operational modes with custom toolchains.
+                Switch Andromeda Soul 1.0 into specialized operational modes with custom toolchains.
               </p>
             </div>
           </div>

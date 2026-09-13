@@ -243,7 +243,7 @@ export const DiscordBotModal: React.FC<DiscordBotModalProps> = ({
                 </h2>
                 <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60 flex items-center gap-1 shrink-0">
                   <ShieldCheck className="w-3 h-3" />
-                  Andromeda Soul 1
+                  Andromeda Soul 1.0
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -503,7 +503,7 @@ export const DiscordBotModal: React.FC<DiscordBotModalProps> = ({
           {activeTab === 'custom-api' && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
-                You can route Andromeda Soul 1 queries or Discord slash commands to an external OpenAI-compatible or custom AI inference server.
+                You can route Andromeda Soul 1.0 queries or Discord slash commands to an external OpenAI-compatible or custom AI inference server.
               </div>
 
               <div className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
@@ -662,7 +662,7 @@ export const DiscordBotModal: React.FC<DiscordBotModalProps> = ({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
                   <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <strong className="text-violet-500">/ask [query]</strong> — Query Andromeda Soul 1
+                    <strong className="text-violet-500">/ask [query]</strong> — Query Andromeda Soul 1.0
                   </div>
                   <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                     <strong className="text-violet-500">/think [problem]</strong> — Uncapped 100,000x reasoning
@@ -681,7 +681,7 @@ export const DiscordBotModal: React.FC<DiscordBotModalProps> = ({
 
         {/* Modal Footer */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex items-center justify-between text-xs text-slate-500">
-          <span>Powered by Andromeda Soul 1 Engine</span>
+          <span>Powered by Andromeda Soul 1.0 Engine</span>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors cursor-pointer"

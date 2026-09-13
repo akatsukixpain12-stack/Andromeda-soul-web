@@ -144,7 +144,7 @@ from andromeda_soul_core import AndromedaSoul1, ModelArgs
 def train():
     args = ModelArgs(dim=2048, n_layers=16, n_heads=16, n_kv_heads=4, vocab_size=32000)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"[Andromeda Soul 1] Training initialized on {device}...")
+    print(f"[Andromeda Soul 1.0] Training initialized on {device}...")
     model = AndromedaSoul1(args).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
     
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     );
     zip.file(
       'README.md',
-      `# Andromeda Soul 1 — PyTorch Neural Transformer Architecture
+      `# Andromeda Soul 1.0 — PyTorch Neural Transformer Architecture
 
 Built-in sovereign intelligence with uncapped reasoning, RoPE rotary embeddings, Grouped-Query Attention (GQA), and SwiGLU activations.
 
@@ -203,7 +203,7 @@ python train.py
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Andromeda Soul 1 (PyTorch Core)
+                  Andromeda Soul 1.0 (PyTorch Core)
                 </h2>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/20">
                   Neural Architecture

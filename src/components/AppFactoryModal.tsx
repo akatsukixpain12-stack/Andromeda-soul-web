@@ -195,7 +195,7 @@ export const AppFactoryModal: React.FC<AppFactoryModalProps> = ({
 
     const files = Object.keys(customFiles).length > 0 ? customFiles : currentProject?.files || {};
     const finalCommitMessage = commitMessage.trim() || (isBotPush
-      ? `🤖 Andromeda Soul 1: Deploy ${currentProject?.name || 'app'} to ${targetFolder || 'root'}`
+      ? `🤖 Andromeda Soul 1.0: Deploy ${currentProject?.name || 'app'} to ${targetFolder || 'root'}`
       : `Deploy ${currentProject?.name || 'app'} via Andromeda`);
 
     try {
@@ -520,7 +520,7 @@ export const AppFactoryModal: React.FC<AppFactoryModalProps> = ({
                   type="text"
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
-                  placeholder={`Deploy ${currentProject?.name || 'project'} folder via Andromeda Soul 1`}
+                  placeholder={`Deploy ${currentProject?.name || 'project'} folder via Andromeda Soul 1.0`}
                   className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-hidden focus:border-emerald-500"
                 />
               </div>

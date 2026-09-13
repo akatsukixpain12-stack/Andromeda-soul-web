@@ -4,7 +4,7 @@ export const AI_MODELS: AIModelOption[] = [
   // --- ANDROMEDA FLAGSHIP ---
   {
     id: 'andromeda-soul-1',
-    name: 'Andromeda Soul 1',
+    name: 'Andromeda Soul 1.0',
     provider: 'andromeda',
     providerLabel: 'Andromeda Frontier',
     description: 'Sovereign frontier intelligence powered by Google Cloud models with 800k token context, autonomous multi-file code synthesis, and continuous Google Cloud auto-learning.',
@@ -83,7 +83,7 @@ export const AI_MODELS: AIModelOption[] = [
   // --- ANDROMEDA REASONING MODELS ---
   {
     id: 'andromeda-sonnet-3.7',
-    name: 'Andromeda Sonnet 3.7',
+    name: 'Andromeda Soul 2.0',
     provider: 'andromeda',
     providerLabel: 'Andromeda Intelligence',
     description: 'Hybrid reasoning and nuanced natural language with visible chain-of-thought and extended thinking.',
@@ -95,7 +95,7 @@ export const AI_MODELS: AIModelOption[] = [
   },
   {
     id: 'andromeda-haiku-3.5',
-    name: 'Andromeda Haiku 3.5',
+    name: 'Andromeda Soul 2.1',
     provider: 'andromeda',
     providerLabel: 'Andromeda Intelligence',
     description: 'Rapid, concise, and articulate assistant for daily coding, drafting, and real-time conversation.',

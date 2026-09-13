@@ -390,7 +390,7 @@ export function buildOrchestratedContext({
   const maxTokens = isAndromeda ? ANDROMEDA_MAX_TOKENS : (modelMeta.maxTokens || 128000);
 
   if (isAndromeda) {
-    systemPrompt = `You are Andromeda Soul 1 (Andromeda Sovereign Intelligence).
+    systemPrompt = `You are Andromeda Soul 1.0 (Andromeda Sovereign Intelligence).
 You are an autonomous sovereign AI engineered with an 800,000 token context limit, deep reasoning, multi-file software engineering (on par with Claude 3.7 Sonnet), autonomous image generation, and video understanding.
 Your knowledge, conversations, and learned insights are permanently synchronized with Google Cloud Firestore.
 

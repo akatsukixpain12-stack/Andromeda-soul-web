@@ -113,7 +113,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({
       category: newProjectCategory,
       instructions: newProjectInstructions.trim() || 'Operate inside this project workspace.',
       files: {
-        'README.md': `# ${newProjectName}\n\nProject created in Andromeda Soul 1.\n`,
+        'README.md': `# ${newProjectName}\n\nProject created in Andromeda Soul 1.0.\n`,
         '.gitignore': 'node_modules/\n.env\n*.key\n',
         '.env.example': '# Environment template\n',
       },
@@ -311,7 +311,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({
                 </span>
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Manage multi-file workspaces and associate them with Andromeda Soul 1.
+                Manage multi-file workspaces and associate them with Andromeda Soul 1.0.
               </p>
             </div>
           </div>
@@ -632,7 +632,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Instructions for Andromeda Soul 1
+                  Instructions for Andromeda Soul 1.0
                 </label>
                 <textarea
                   rows={2}

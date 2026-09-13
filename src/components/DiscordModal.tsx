@@ -296,7 +296,7 @@ client.login(process.env.DISCORD_BOT_TOKEN || '${botToken || 'YOUR_BOT_TOKEN_HER
                   <span>Frontier Uncapped AI Reasoning</span>
                 </div>
                 <p className="text-slate-400">
-                  Queries Andromeda Soul 1 orchestrator with live web search grounding, calculator precision, and extended chain-of-thought.
+                  Queries Andromeda Soul 1.0 orchestrator with live web search grounding, calculator precision, and extended chain-of-thought.
                 </p>
               </div>
             </div>

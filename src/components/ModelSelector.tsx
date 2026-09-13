@@ -34,7 +34,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     models.find((m) => m.id === selectedModelId) ||
     models[0] || {
       id: 'andromeda-soul-1',
-      name: 'Andromeda Soul 1',
+      name: 'Andromeda Soul 1.0',
       description: 'Built-in sovereign intelligence with uncapped reasoning and Discord bot engineering',
       badge: 'Soul 1',
     };
@@ -177,4 +177,3 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     </div>
   );
 };
-

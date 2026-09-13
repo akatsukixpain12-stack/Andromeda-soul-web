@@ -672,7 +672,7 @@ export const IntegrationsModal: React.FC<IntegrationsModalProps> = ({
                     Underlying Intelligence Engine
                   </span>
                   <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Andromeda Soul 1 utilizes Google Gemini models (Gemini 3.8 Flash, Gemini 3.1 Flash Lite) as its primary foundation engine. API credentials are stored server-side and never exposed to the client.
+                    Andromeda Soul 1.0 utilizes Google Gemini models (Gemini 3.8 Flash, Gemini 3.1 Flash Lite) as its primary foundation engine. API credentials are stored server-side and never exposed to the client.
                   </p>
                 </div>
               </div>

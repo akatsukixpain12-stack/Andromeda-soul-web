@@ -1,8 +1,8 @@
-// Preset project scaffolds generated and exportable by Andromeda Soul 1
+// Preset project scaffolds generated and exportable by Andromeda Soul 1.0
 import { GeneratedProject } from '../src/types.js';
 
 export const PYTORCH_MODEL_CODE = `"""
-Andromeda Soul 1: Neural Core Architecture (PyTorch Implementation)
+Andromeda Soul 1.0: Neural Core Architecture (PyTorch Implementation)
 Frontier-grade Generative Transformer with Rotary Positional Embeddings (RoPE),
 SwiGLU Feed-Forward Network, RMSNorm, and KV-Cache Acceleration.
 """
@@ -201,7 +201,7 @@ class AndromedaTransformer(nn.Module):
         return curr_tokens
 
 if __name__ == "__main__":
-    print("Initializing Andromeda Soul 1 PyTorch Neural Core...")
+    print("Initializing Andromeda Soul 1.0 PyTorch Neural Core...")
     config = AndromedaConfig(dim=512, n_layers=4, n_heads=8, n_kv_heads=2, max_seq_len=2048)
     model = AndromedaTransformer(config)
     print(f"Model instantiated successfully with {sum(p.numel() for p in model.parameters()):,} parameters.")
@@ -214,7 +214,7 @@ export const PRESET_PROJECTS: GeneratedProject[] = [
   {
     id: 'andromeda-pytorch-core',
     name: 'andromeda-pytorch-core',
-    title: 'Andromeda Soul 1 (PyTorch Neural Core)',
+    title: 'Andromeda Soul 1.0 (PyTorch Neural Core)',
     description: 'Production PyTorch Transformer model with RoPE positional embeddings, SwiGLU, GQA, and KV Cache inference.',
     category: 'pytorch-model',
     createdAt: Date.now(),
@@ -226,7 +226,7 @@ from andromeda_soul_core import AndromedaConfig, AndromedaTransformer
 
 def train():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Training Andromeda Soul 1 on {device}")
+    print(f"Training Andromeda Soul 1.0 on {device}")
     
     config = AndromedaConfig(dim=512, n_layers=6, n_heads=8, n_kv_heads=2)
     model = AndromedaTransformer(config).to(device)
@@ -257,7 +257,7 @@ transformers>=4.40.0
 accelerate>=0.28.0
 einops>=0.7.0
 `,
-      'README.md': `# Andromeda Soul 1 — PyTorch Neural Transformer 🌌
+      'README.md': `# Andromeda Soul 1.0 — PyTorch Neural Transformer 🌌
 
 Sovereign generative transformer core engineered for high-throughput reasoning and zero-defect code synthesis.
 
@@ -279,7 +279,7 @@ python train.py
   {
     id: 'andromeda-discord-bot',
     name: 'andromeda-discord-bot',
-    title: 'Discord Bot Suite (Andromeda Soul 1)',
+    title: 'Discord Bot Suite (Andromeda Soul 1.0)',
     description: 'Complete Discord.js v14 bot with slash commands, AI generation, and zero-leak token security.',
     category: 'discord-bot',
     createdAt: Date.now(),
@@ -316,13 +316,13 @@ const commands = [
   new SlashCommandBuilder().setName('ping').setDescription('Replies with bot ping and latency stats'),
   new SlashCommandBuilder()
     .setName('ask')
-    .setDescription('Ask Andromeda Soul 1 for answers, code, or ideas')
+    .setDescription('Ask Andromeda Soul 1.0 for answers, code, or ideas')
     .addStringOption((opt) => opt.setName('prompt').setDescription('Your question or task').setRequired(true)),
   new SlashCommandBuilder()
     .setName('think100000times')
     .setDescription('Deep 100,000x reasoning synthesis mode')
     .addStringOption((opt) => opt.setName('problem').setDescription('Complex question or architectural task').setRequired(true)),
-  new SlashCommandBuilder().setName('status').setDescription('Checks Andromeda Soul 1 operating state'),
+  new SlashCommandBuilder().setName('status').setDescription('Checks Andromeda Soul 1.0 operating state'),
 ].map((cmd) => cmd.toJSON());
 
 client.once('ready', async () => {
@@ -349,7 +349,7 @@ client.on('interactionCreate', async (interaction) => {
     });
   } else if (commandName === 'status') {
     await interaction.reply({
-      content: '🌌 **Andromeda Soul 1 (PyTorch Neural Core)**\\nStatus: All systems nominal.\\nReasoning: Uncapped (100,000x mode ready).',
+      content: '🌌 **Andromeda Soul 1.0 (PyTorch Neural Core)**\\nStatus: All systems nominal.\\nReasoning: Uncapped (100,000x mode ready).',
     });
   } else if (commandName === 'ask' || commandName === 'think100000times') {
     await interaction.deferReply();
@@ -364,7 +364,7 @@ client.on('interactionCreate', async (interaction) => {
         model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
-          systemInstruction: 'You are Andromeda Soul 1, a brilliant sovereign AI assistant powered by PyTorch neural transformer architecture. Provide precise, actionable Discord markdown answers.',
+          systemInstruction: 'You are Andromeda Soul 1.0, a brilliant sovereign AI assistant powered by PyTorch neural transformer architecture. Provide precise, actionable Discord markdown answers.',
         },
       });
 
@@ -409,8 +409,8 @@ GEMINI_API_KEY=your_gemini_api_key_here
 .env.local
 *.log
 `,
-      'README.md': `# Andromeda Soul 1 Discord Bot 🤖
-Production Discord Bot built with **discord.js v14** and **Andromeda Soul 1 AI**.
+      'README.md': `# Andromeda Soul 1.0 Discord Bot 🤖
+Production Discord Bot built with **discord.js v14** and **Andromeda Soul 1.0 AI**.
 Run \`npm install\` then \`npm start\`.
 `,
     },

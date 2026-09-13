@@ -275,7 +275,7 @@ client.on('interactionCreate', async (interaction) => {
   } else if (interaction.commandName === 'ask') {
     const query = interaction.options.getString('prompt');
     await interaction.deferReply();
-    await interaction.editReply(\`**Andromeda Soul 1 Response:**\\nAnalysis of: "\${query}" - ready.\`);
+    await interaction.editReply(\`**Andromeda Soul 1.0 Response:**\\nAnalysis of: "\${query}" - ready.\`);
   }
 });
 
@@ -294,7 +294,7 @@ client.login(process.env.DISCORD_TOKEN);
         category: 'Machine Learning',
         files: {
           'andromeda_soul_core.py': `"""
-Andromeda Soul 1: Native PyTorch Transformer Architecture
+Andromeda Soul 1.0: Native PyTorch Transformer Architecture
 Equipped with RoPE (Rotary Positional Embeddings), RMSNorm, SwiGLU, and KV-Cache.
 """
 import math
@@ -367,7 +367,7 @@ import torch.nn as nn
 from andromeda_soul_core import AndromedaSoul1, ModelArgs
 
 def main():
-    print("[Andromeda Soul 1] Starting native PyTorch training loop...")
+    print("[Andromeda Soul 1.0] Starting native PyTorch training loop...")
     args = ModelArgs(dim=512, n_layers=6, n_heads=8, vocab_size=8000)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
@@ -395,12 +395,12 @@ if __name__ == "__main__":
     main()
 `,
           'serve.py': `"""
-Local FastAPI Server for Andromeda Soul 1 PyTorch Model
+Local FastAPI Server for Andromeda Soul 1.0 PyTorch Model
 """
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-app = FastAPI(title="Andromeda Soul 1 Local Inference Server")
+app = FastAPI(title="Andromeda Soul 1.0 Local Inference Server")
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -414,7 +414,7 @@ def health():
 @app.post("/generate")
 def generate(req: GenerateRequest):
     return {
-        "text": f"Andromeda Soul 1 local inference placeholder response for: '{req.prompt}'",
+        "text": f"Andromeda Soul 1.0 local inference placeholder response for: '{req.prompt}'",
         "tokens_generated": 16
     }
 `,
