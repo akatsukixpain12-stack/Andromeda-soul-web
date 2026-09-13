@@ -45,6 +45,21 @@
         "error": { "type": "boolean" }
       },
       "required": ["id", "role", "content", "timestamp"]
+    },
+    "LearnedKnowledge": {
+      "title": "LearnedKnowledge",
+      "description": "Knowledge and learned insights stored on Google Cloud server",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "topic": { "type": "string" },
+        "insight": { "type": "string" },
+        "category": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "topic", "insight", "createdAt"]
     }
   },
   "firestore": {
@@ -59,6 +74,14 @@
     "/users/{userId}/conversations/{conversationId}/messages/{messageId}": {
       "schema": { "$ref": "#/entities/ChatMessage" },
       "description": "Nested messages under each chat session"
+    },
+    "/users/{userId}/knowledge/{knowledgeId}": {
+      "schema": { "$ref": "#/entities/LearnedKnowledge" },
+      "description": "Personal learned knowledge on Google Cloud server"
+    },
+    "/collective_knowledge/{knowledgeId}": {
+      "schema": { "$ref": "#/entities/LearnedKnowledge" },
+      "description": "Shared learned insights stored on Google Cloud server"
     }
   }
 }

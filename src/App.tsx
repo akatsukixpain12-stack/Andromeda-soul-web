@@ -605,7 +605,12 @@ export function App() {
         isOpen={isProvidersModalOpen}
         onClose={() => setIsProvidersModalOpen(false)}
         settings={settings}
-        onSaveSettings={(newSettings) => setSettings(newSettings)}
+        onSaveSettings={(newSettings) => {
+          setSettings(newSettings);
+          if (currentUser?.id && currentUser.provider !== 'guest') {
+            dbSaveUserSettings(currentUser.id, newSettings).catch(console.error);
+          }
+        }}
       />
 
       {/* 4. Google Auth & User Profile Modal */}

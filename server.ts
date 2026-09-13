@@ -657,8 +657,91 @@ npm start
   // Get project files for direct view or local zip download
   app.get('/api/discord/project-files', (req: Request, res: Response) => {
     const config = db.getDiscordConfig(false);
-    const files = getDiscordBotProjectFiles(config);
-    res.json({ files });
+    const baseFiles = getDiscordBotProjectFiles(config);
+    const customFiles = db.getCustomBotFiles();
+    res.json({ files: { ...baseFiles, ...customFiles } });
+  });
+
+  // Update Discord Bot script / files directly from chat or Discord Studio
+  app.post('/api/discord/update-bot-code', (req: Request, res: Response) => {
+    const { code, filename = 'index.js' } = req.body;
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ success: false, error: 'Code string is required.' });
+    }
+    db.setCustomBotFile(filename, code);
+    const config = db.getDiscordConfig(false);
+    const allFiles = { ...getDiscordBotProjectFiles(config), ...db.getCustomBotFiles() };
+    res.json({
+      success: true,
+      message: `Discord Bot script [${filename}] updated successfully!`,
+      filename,
+      files: allFiles,
+    });
+  });
+
+  // Simulated live Discord interactive testing
+  app.post('/api/discord/simulate-chat', async (req: Request, res: Response) => {
+    const { command, prompt, user = 'DiscordUser' } = req.body;
+    const cleanPrompt = (prompt || '').trim();
+    const cleanCommand = (command || '').trim();
+
+    const latency = Math.floor(Math.random() * 25) + 12;
+
+    if (cleanCommand === '/ping' || cleanPrompt === '/ping') {
+      return res.json({
+        author: 'Andromeda Bot',
+        avatar: '🤖',
+        content: `🏓 **Pong!** Bot Latency: \`${latency}ms\` | Gateway: \`${Math.round(latency * 0.8)}ms\` | Status: 🟢 Online`,
+        timestamp: Date.now(),
+      });
+    }
+
+    if (cleanCommand === '/status' || cleanPrompt === '/status') {
+      return res.json({
+        author: 'Andromeda Bot',
+        avatar: '🤖',
+        content: `🌌 **Andromeda Soul 1 — Sovereign Discord Bot Gateway**\n- **Engine**: Frontier Uncapped Reasoning\n- **Memory & Storage**: Google Cloud Server Connected\n- **Status**: Operational (All Guild Listeners Active)`,
+        timestamp: Date.now(),
+      });
+    }
+
+    const ai = getGeminiClient();
+    const actualPrompt = cleanPrompt || cleanCommand.replace(/^\/(ask|code|chat)\s*/i, '');
+
+    if (!ai) {
+      return res.json({
+        author: 'Andromeda Bot',
+        avatar: '🤖',
+        content: `🤖 [Simulated Discord Reply]: Task processed for: "${actualPrompt}". Configure GEMINI_API_KEY in .env for live frontier inference.`,
+        timestamp: Date.now(),
+      });
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: actualPrompt,
+        config: {
+          systemInstruction:
+            'You are Andromeda Discord Bot. You reply with clean Discord markdown, formatting code in Discord codeblocks, bold headers, and concise bullet points.',
+        },
+      });
+
+      const text = response.text || 'Command executed successfully.';
+      res.json({
+        author: 'Andromeda Bot',
+        avatar: '🤖',
+        content: text.slice(0, 1990),
+        timestamp: Date.now(),
+      });
+    } catch (err: any) {
+      res.json({
+        author: 'Andromeda Bot',
+        avatar: '🤖',
+        content: `❌ Error responding: ${err.message || 'Unknown error'}`,
+        timestamp: Date.now(),
+      });
+    }
   });
 
   // Push Discord Bot Project to GitHub (Without leaking secret tokens)

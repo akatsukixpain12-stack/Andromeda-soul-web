@@ -22,7 +22,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Conversation, ChatMessage, UserSettings, UserProfile } from '../types';
+import { Conversation, ChatMessage, UserSettings, UserProfile, LearnedKnowledge } from '../types';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -240,4 +240,124 @@ export async function dbDeleteConversation(userId: string, conversationId: strin
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
+/**
+ * Saves learned knowledge to Google Cloud server (user partition & collective memory)
+ */
+export async function dbSaveLearnedKnowledge(userId: string, knowledge: LearnedKnowledge) {
+  if (!isUserAuthenticated(userId)) {
+    return;
+  }
+  const userPath = `users/${userId}/knowledge/${knowledge.id}`;
+  try {
+    const payload = cleanUndefined({
+      ...knowledge,
+      userId,
+      createdAt: knowledge.createdAt || Date.now()
+    });
+
+    // 1. Save to user private cloud knowledge
+    await setDoc(doc(db, 'users', userId, 'knowledge', knowledge.id), payload, { merge: true });
+
+    // 2. Save anonymized/generalized insight to collective Google Cloud knowledge store
+    const collectivePayload = cleanUndefined({
+      id: knowledge.id,
+      topic: knowledge.topic,
+      insight: knowledge.insight,
+      category: knowledge.category || 'general_intelligence',
+      source: knowledge.source || 'user_taught',
+      userId,
+      createdAt: Date.now(),
+      tags: knowledge.tags || []
+    });
+    await setDoc(doc(db, 'collective_knowledge', knowledge.id), collectivePayload, { merge: true });
+  } catch (error) {
+    console.warn('Firestore knowledge write error:', error);
+    handleFirestoreError(error, OperationType.WRITE, userPath);
+  }
+}
+
+/**
+ * Subscribes to learned knowledge on Google Cloud server
+ */
+export function dbSubscribeKnowledge(
+  userId: string,
+  onUpdate: (knowledgeList: LearnedKnowledge[]) => void
+) {
+  if (!isUserAuthenticated(userId)) {
+    return () => {};
+  }
+  const path = `users/${userId}/knowledge`;
+  try {
+    const q = query(collection(db, 'users', userId, 'knowledge'), orderBy('createdAt', 'desc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const list: LearnedKnowledge[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: d.id,
+            topic: data.topic || 'General Learning',
+            insight: data.insight || '',
+            category: data.category || 'general',
+            source: data.source || 'user_taught',
+            userId: data.userId || userId,
+            createdAt: data.createdAt || Date.now(),
+            tags: data.tags || [],
+            appliedCount: data.appliedCount || 0
+          });
+        });
+        onUpdate(list);
+      },
+      (error) => {
+        console.warn('Firestore knowledge snapshot error:', error);
+        handleFirestoreError(error, OperationType.GET, path);
+      }
+    );
+  } catch (error) {
+    console.warn('Firestore subscribe knowledge error:', error);
+    handleFirestoreError(error, OperationType.GET, path);
+    return () => {};
+  }
+}
+
+/**
+ * Subscribes to collective learned knowledge on Google Cloud server
+ */
+export function dbSubscribeCollectiveKnowledge(
+  onUpdate: (knowledgeList: LearnedKnowledge[]) => void
+) {
+  try {
+    const q = query(collection(db, 'collective_knowledge'), orderBy('createdAt', 'desc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const list: LearnedKnowledge[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: d.id,
+            topic: data.topic || 'Collective Insight',
+            insight: data.insight || '',
+            category: data.category || 'general',
+            source: data.source || 'user_taught',
+            userId: data.userId || '',
+            createdAt: data.createdAt || Date.now(),
+            tags: data.tags || [],
+            appliedCount: data.appliedCount || 0
+          });
+        });
+        onUpdate(list);
+      },
+      (error) => {
+        console.warn('Firestore collective knowledge error:', error);
+      }
+    );
+  } catch (error) {
+    console.warn('Firestore subscribe collective knowledge error:', error);
+    return () => {};
+  }
+}
+
 

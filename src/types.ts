@@ -235,3 +235,16 @@ export interface Agent {
   tools: string[];
 }
 
+export interface LearnedKnowledge {
+  id: string;
+  topic: string;
+  insight: string;
+  category?: string;
+  source?: 'user_taught' | 'conversation_learning' | 'code_pattern' | 'feedback';
+  userId?: string;
+  userEmail?: string;
+  createdAt: number;
+  tags?: string[];
+  appliedCount?: number;
+}
+

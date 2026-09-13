@@ -32,6 +32,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId) && isValidId(userId);
 
+      // Knowledge sub-collection
+      match /knowledge/{knowledgeId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create, update, delete: if isOwner(userId) && isValidId(userId) && isValidId(knowledgeId);
+      }
+
       // Conversations sub-collection
       match /conversations/{conversationId} {
         allow get: if isOwner(userId) && isValidId(userId) && isValidId(conversationId);
@@ -45,6 +51,14 @@ service cloud.firestore {
           allow create, update, delete: if isOwner(userId) && isValidId(userId) && isValidId(conversationId) && isValidId(messageId);
         }
       }
+    }
+
+    // Collective Knowledge Collection (Learned insights stored on Google Cloud server)
+    match /collective_knowledge/{knowledgeId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(knowledgeId);
+      allow update: if isSignedIn() && isValidId(knowledgeId);
+      allow delete: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }

@@ -443,6 +443,18 @@ def generate(req: GenerateRequest):
     this.writeJSON(this.projectsFile, filtered);
     return true;
   }
+
+  getCustomBotFiles(): Record<string, string> {
+    const f = path.join(DATA_DIR, 'custom_bot_files.json');
+    return this.readJSON<Record<string, string>>(f, {});
+  }
+
+  setCustomBotFile(filename: string, content: string): void {
+    const f = path.join(DATA_DIR, 'custom_bot_files.json');
+    const existing = this.getCustomBotFiles();
+    existing[filename] = content;
+    this.writeJSON(f, existing);
+  }
 }
 
 export const db = new Database();

@@ -19,16 +19,19 @@ import {
   Flame,
   Cpu,
   HardDrive,
-  Edit2,
-  Share2,
-  Download,
   FolderArchive,
-  MessageSquare,
+  Bot,
+  RefreshCw,
+  CheckCircle2,
+  Cloud,
 } from 'lucide-react';
-import { ChatMessage, ChatAttachment, AIModelOption, UserProfile } from '../types';
+import { ChatMessage, ChatAttachment, AIModelOption, UserProfile, LearnedKnowledge } from '../types';
 import { AI_MODELS, findModelById } from '../data/models';
 import { UserAvatar } from './UserAvatar';
 import { createZipFromCode, triggerDownload } from '../lib/zipExporter';
+import { DiscordLiveChatModal } from './DiscordLiveChatModal';
+import { LearnedKnowledgeModal } from './LearnedKnowledgeModal';
+import { dbSaveLearnedKnowledge, dbSubscribeKnowledge } from '../lib/firebase';
 
 interface AndromedaChatAreaProps {
   messages: ChatMessage[];
@@ -75,11 +78,33 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
 
+  // Discord Live Interactive Pop-up & Side Update State
+  const [isDiscordLiveChatOpen, setIsDiscordLiveChatOpen] = useState(false);
+  const [activeBotCode, setActiveBotCode] = useState('');
+  const [updatingCodeKey, setUpdatingCodeKey] = useState<string | null>(null);
+  const [updatedCodeKey, setUpdatedCodeKey] = useState<string | null>(null);
+
+  // Cloud Learned Knowledge State
+  const [isLearnedKnowledgeOpen, setIsLearnedKnowledgeOpen] = useState(false);
+  const [learnedKnowledgeList, setLearnedKnowledgeList] = useState<LearnedKnowledge[]>([]);
+  const [teachingMsgId, setTeachingMsgId] = useState<string | null>(null);
+  const [taughtSuccessMsgId, setTaughtSuccessMsgId] = useState<string | null>(null);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentModel = findModelById(selectedModelId, customModels);
+
+  // Subscribe to Cloud Learned Knowledge for this user
+  useEffect(() => {
+    if (currentUser?.id) {
+      const unsub = dbSubscribeKnowledge(currentUser.id, (list) => {
+        setLearnedKnowledgeList(list);
+      });
+      return () => unsub();
+    }
+  }, [currentUser?.id]);
 
   // Auto-scroll as text streams
   useEffect(() => {
@@ -159,7 +184,96 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
     }
   };
 
-  // File Upload Handling
+  // Direct Side "Update Bot" Action
+  const handleDirectUpdateBot = async (codeKey: string, codeString: string) => {
+    setUpdatingCodeKey(codeKey);
+    try {
+      await fetch('/api/discord/update-bot-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: codeString, filename: 'index.js' }),
+      });
+      setUpdatedCodeKey(codeKey);
+      setTimeout(() => setUpdatedCodeKey(null), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdatingCodeKey(null);
+    }
+  };
+
+  // Teach Andromeda / Save to Google Cloud Server
+  const handleTeachAndromeda = async (msgId: string, content: string) => {
+    setTeachingMsgId(msgId);
+    try {
+      const firstLine = content.split('\n')[0].replace(/[#*`_]/g, '').trim();
+      const topic = firstLine.slice(0, 60) || 'AI Assistant Solution';
+      const insight = content.slice(0, 450);
+
+      const item: LearnedKnowledge = {
+        id: `know-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        topic,
+        insight,
+        category: content.includes('discord') ? 'discord_bot' : content.includes('```') ? 'coding_style' : 'general_intelligence',
+        source: 'feedback',
+        userId: currentUser?.id || 'usr_local',
+        userEmail: currentUser?.email,
+        createdAt: Date.now(),
+        tags: ['auto-learned', 'cloud-sync'],
+      };
+
+      if (currentUser?.id && currentUser.provider !== 'guest') {
+        await dbSaveLearnedKnowledge(currentUser.id, item);
+      }
+      setLearnedKnowledgeList((prev) => [item, ...prev]);
+      setTaughtSuccessMsgId(msgId);
+      setTimeout(() => setTaughtSuccessMsgId(null), 3000);
+    } catch (err) {
+      console.error('Failed to teach Andromeda:', err);
+    } finally {
+      setTeachingMsgId(null);
+    }
+  };
+
+  const handleCopyMessage = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(id);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
+  const handleCopyCode = (key: string, code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCodeKey(key);
+    setTimeout(() => setCopiedCodeKey(null), 2000);
+  };
+
+  const handleToggleSpeak = (msgId: string, text: string) => {
+    if (speakingMsgId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const cleanText = text.replace(/```[\s\S]*?```/g, 'Code block omitted.').replace(/[#*`_]/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => setSpeakingMsgId(null);
+    utterance.onerror = () => setSpeakingMsgId(null);
+
+    setSpeakingMsgId(msgId);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const toggleThought = (id: string) => {
+    setExpandedThoughts((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -178,265 +292,130 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
         };
         setAttachments((prev) => [...prev, newAttachment]);
       };
-      reader.readAsDataURL(file);
+      if (file.type.startsWith('image/')) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
     });
-
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleRemoveAttachment = (id: string) => {
+  const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // Copy helper
-  const handleCopyMessage = (id: string, text: string) => {
-    const cleanText = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim();
-    navigator.clipboard.writeText(cleanText);
-    setCopiedMsgId(id);
-    setTimeout(() => setCopiedMsgId(null), 2000);
-  };
-
-  const handleCopyCode = (key: string, code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCodeKey(key);
-    setTimeout(() => setCopiedCodeKey(null), 2000);
-  };
-
-  // Text-To-Speech
-  const handleToggleSpeak = (msgId: string, text: string) => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (speakingMsgId === msgId) {
-      window.speechSynthesis.cancel();
-      setSpeakingMsgId(null);
-    } else {
-      window.speechSynthesis.cancel();
-      const cleanText = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.onend = () => setSpeakingMsgId(null);
-      utterance.onerror = () => setSpeakingMsgId(null);
-      window.speechSynthesis.speak(utterance);
-      setSpeakingMsgId(msgId);
-    }
-  };
-
-  const toggleThought = (msgId: string) => {
-    setExpandedThoughts((prev) => ({
-      ...prev,
-      [msgId]: !prev[msgId],
-    }));
-  };
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
-
-  const getProviderIcon = (provider?: string) => {
+  const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'andromeda':
-        return <Flame className="w-4 h-4 text-amber-600" />;
+        return <Flame className="w-3.5 h-3.5 text-[#D97706]" />;
+      case 'google':
+      case 'gemini':
+        return <Sparkles className="w-3.5 h-3.5 text-[#2563EB]" />;
       case 'ollama':
-        return <Cpu className="w-4 h-4 text-emerald-600" />;
+        return <Cpu className="w-3.5 h-3.5 text-[#059669]" />;
       case 'lmstudio':
-        return <HardDrive className="w-4 h-4 text-purple-600" />;
-      case 'groq':
-        return <Zap className="w-4 h-4 text-orange-600" />;
+        return <HardDrive className="w-3.5 h-3.5 text-[#7C3AED]" />;
       default:
-        return <Sparkles className="w-4 h-4 text-blue-600" />;
+        return <Zap className="w-3.5 h-3.5 text-[#4F46E5]" />;
     }
-  };
-
-  // Extract <thought> tags from stored message content if present
-  const parseThoughtAndContent = (text: string) => {
-    const match = text.match(/<thought>([\s\S]*?)(?:<\/thought>|$)/i);
-    if (match) {
-      const thought = match[1].trim();
-      const content = text.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/i, '').trim();
-      return { thought, content };
-    }
-    return { thought: null, content: text };
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100dvh-53px)] sm:h-[calc(100dvh-57px)] w-full max-w-full overflow-hidden bg-[#FAF9F5]">
-      {/* Scrollable conversation thread */}
-      <div className="flex-1 overflow-y-auto px-2.5 sm:px-4 py-4 sm:py-6 overflow-x-hidden">
-        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 w-full">
-          {/* Empty State: Andromeda Sovereign Studio greeting */}
-          {messages.length === 0 && !isStreaming && (
-            <div className="pt-4 sm:pt-8 pb-8 sm:pb-12 text-center max-w-xl mx-auto space-y-4 sm:space-y-6 px-2 animate-in fade-in duration-300">
-              {/* Andromeda Brand Glyph */}
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-amber-600 via-orange-500 to-indigo-600 text-white flex items-center justify-center font-bold text-lg sm:text-xl shadow-lg border border-white/20">
-                  A
-                </div>
-              </div>
+    <div className="flex-1 flex flex-col h-full bg-[#FAF9F5] relative overflow-hidden">
+      {/* Top Floating Cloud Knowledge Indicator Bar */}
+      <div className="h-10 bg-white/70 backdrop-blur-xs border-b border-[#E2E0D8] px-4 sm:px-6 flex items-center justify-between shrink-0 text-xs text-[#78716C]">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsLearnedKnowledgeOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-medium border border-amber-500/20 transition-colors cursor-pointer"
+            title="View insights & rules saved to Google Cloud server"
+          >
+            <Brain className="w-3.5 h-3.5 text-amber-600" />
+            <span>Google Cloud Learned Memory ({learnedKnowledgeList.length})</span>
+          </button>
+        </div>
 
-              <div className="space-y-1.5 sm:space-y-2">
-                <h1 className="text-xl sm:text-3xl font-semibold text-[#1C1917] tracking-tight font-display">
-                  {getGreeting()}, {userName}
-                </h1>
-                <p className="text-xs sm:text-sm text-[#78716C] leading-relaxed">
-                  Welcome to <strong>Andromeda Sovereign AI Studio</strong>. Equipped with{' '}
-                  <strong>Andromeda Soul 1</strong> (Frontier Uncapped), Google Gemini, Andromeda reasoning, and 100% free local models with Ollama & LM Studio.
-                </p>
-              </div>
+        <div className="flex items-center gap-2 font-mono text-[11px]">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span>Storage: Google Cloud Server</span>
+        </div>
+      </div>
 
-              {/* Free Provider Badges */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900 shadow-2xs">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  Andromeda Soul 1 (Uncapped)
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  Gemini 3.6 Flash
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
-                  <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-                  Ollama (100% Free Local)
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-white border border-[#E2E0D8] text-xs font-medium text-[#44403C] shadow-2xs">
-                  <Brain className="w-3.5 h-3.5 text-amber-600" />
-                  Extended Thinking
-                </span>
-              </div>
-
-              {/* 4 Interactive Starter Prompt Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-left">
-                {[
-                  {
-                    icon: <Sparkles className="w-4 h-4 text-amber-600" />,
-                    title: 'Andromeda Soul 1 Deep Reason',
-                    desc: 'Frontier uncapped architectural reasoning and high-level strategy.',
-                    prompt:
-                      'Analyze how modern sovereign AI systems orchestrate multi-provider fallback between local Ollama and cloud frontier models.',
-                  },
-                  {
-                    icon: <FileText className="w-4 h-4 text-blue-600" />,
-                    title: 'Code Synthesis & Refactor',
-                    desc: 'Write clean, production-grade TypeScript, Python, or PyTorch models.',
-                    prompt:
-                      'Write a clean, robust TypeScript HTTP client with exponential backoff, rate limiting, and typed custom errors.',
-                  },
-                  {
-                    icon: <Cpu className="w-4 h-4 text-emerald-600" />,
-                    title: 'Local Ollama Setup & Run',
-                    desc: 'Zero token cost running offline on your own machine.',
-                    prompt:
-                      'Hello from local Ollama! Give me a creative and precise explanation of quantum computing in 3 paragraphs.',
-                  },
-                  {
-                    icon: <HardDrive className="w-4 h-4 text-purple-600" />,
-                    title: 'Compare Models & APIs',
-                    desc: 'Evaluate differences between Andromeda, Gemini, and local weights.',
-                    prompt:
-                      'Compare the strengths and latency profiles between Andromeda Soul 1, Gemini 2.5 Flash, and DeepSeek-R1 local.',
-                  },
-                ].map((item, idx) => (
-                  <button
-                    key={idx}
-                    id={`starter-prompt-${idx}`}
-                    onClick={() => {
-                      setInputText(item.prompt);
-                      textareaRef.current?.focus();
-                    }}
-                    className="p-3.5 rounded-2xl bg-white hover:bg-[#F9F8F5] border border-[#E5E3DB] hover:border-[#D97706]/50 text-left transition-all shadow-2xs group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="p-1 rounded-md bg-[#FAF9F5] border border-[#EAE8E2] group-hover:bg-white">
-                        {item.icon}
-                      </div>
-                      <span className="text-xs font-semibold text-[#1C1917]">{item.title}</span>
-                    </div>
-                    <p className="text-xs text-[#78716C] leading-snug line-clamp-2">{item.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Render historical messages */}
+      {/* Messages Scroll Area */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6">
           {messages.map((message) => {
             const isUser = message.role === 'user';
-            const { thought, content } = parseThoughtAndContent(message.content);
-            const effectiveThought = message.thought || thought;
-            const isThoughtOpen = expandedThoughts[message.id] !== false; // open by default
+            const content = message.content;
+            const thought = message.thought;
+            const isThoughtExpanded = expandedThoughts[message.id] ?? false;
 
             if (isUser) {
               return (
-                <div key={message.id} className="flex justify-end items-start gap-2.5 animate-in fade-in duration-150">
-                  <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 bg-[#F4F3EE] text-[#1C1917] border border-[#E5E3DC] shadow-2xs space-y-2">
-                    {/* Attachments preview */}
+                <div key={message.id} className="flex justify-end items-start gap-3">
+                  <div className="max-w-[85%] sm:max-w-[75%] space-y-2">
+                    {/* User attachments */}
                     {message.attachments && message.attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-0.5">
+                      <div className="flex flex-wrap gap-2 justify-end">
                         {message.attachments.map((att) => (
                           <div
                             key={att.id}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-[#E0DED7] text-xs text-[#44403C]"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#EBE8DF] border border-[#DDD9CE] text-xs text-[#1C1917]"
                           >
-                            <FileText className="w-3.5 h-3.5 text-[#8C887B]" />
-                            <span className="truncate max-w-[140px] font-medium">{att.name}</span>
+                            <FileText className="w-3.5 h-3.5 text-[#78716C]" />
+                            <span className="font-mono text-xs max-w-[140px] truncate">{att.name}</span>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{content}</div>
+                    <div className="px-4 py-3 rounded-2xl bg-[#1C1917] text-[#FAF9F5] text-sm leading-relaxed whitespace-pre-wrap font-sans shadow-xs selection:bg-[#D97706] selection:text-white">
+                      {content}
+                    </div>
                   </div>
-
-                  <UserAvatar
-                    name={currentUser?.name || userName}
-                    email={currentUser?.email}
-                    avatar={currentUser?.avatar}
-                    size="sm"
-                    className="mt-1 shrink-0"
-                  />
+                  <UserAvatar user={currentUser} name={userName} size="sm" />
                 </div>
               );
             }
 
             // Assistant message
             return (
-              <div key={message.id} className="space-y-3 animate-in fade-in duration-150">
-                {/* Assistant Header Avatar */}
+              <div key={message.id} className="flex flex-col space-y-3">
+                {/* Assistant Model Tag & Thought */}
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-white border border-[#E2E0D8] flex items-center justify-center shadow-2xs">
                     {getProviderIcon(currentModel.provider)}
                   </div>
-                  <span className="text-xs font-semibold text-[#1C1917]">
-                    {message.model || currentModel.name}
-                  </span>
-                  <span className="text-[11px] text-[#8C887B]">
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <span className="text-xs font-semibold text-[#1C1917]">{currentModel.name}</span>
+                  {message.modelId && (
+                    <span className="text-[10px] font-mono text-[#A8A29E] px-1.5 py-0.5 rounded bg-[#F0EEE6]">
+                      {message.modelId}
+                    </span>
+                  )}
                 </div>
 
-                {/* Collapsible Thinking Accordion (Andromeda / Gemini Thinking) */}
-                {effectiveThought && (
-                  <div className="thought-container overflow-hidden border border-[#E5E3DB] rounded-xl shadow-2xs">
+                {/* Thought Accordion */}
+                {thought && (
+                  <div className="rounded-xl border border-[#E2E0D8] bg-[#F4F2EB]/60 overflow-hidden text-xs">
                     <button
-                      id={`toggle-thought-${message.id}`}
                       onClick={() => toggleThought(message.id)}
-                      className="w-full px-3.5 py-2 flex items-center justify-between text-xs font-medium text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
+                      className="w-full px-3.5 py-2 flex items-center justify-between text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-2">
-                        <Brain className="w-3.5 h-3.5 text-[#D97706]" />
-                        <span>Thinking process (reasoning trace)</span>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Brain className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Thinking Process & Reasoning</span>
                       </div>
-                      {isThoughtOpen ? (
+                      {isThoughtExpanded ? (
                         <ChevronDown className="w-3.5 h-3.5" />
                       ) : (
                         <ChevronRight className="w-3.5 h-3.5" />
                       )}
                     </button>
 
-                    {isThoughtOpen && (
-                      <div className="px-4 py-3 border-t border-[#EAE7DE] text-xs font-mono text-[#57534E] whitespace-pre-wrap leading-relaxed bg-[#FAF9F5]/70 max-h-72 overflow-y-auto">
-                        {effectiveThought}
+                    {isThoughtExpanded && (
+                      <div className="px-3.5 py-2.5 bg-white/70 border-t border-[#E2E0D8] text-[#44403C] font-mono text-xs leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                        {thought}
                       </div>
                     )}
                   </div>
@@ -454,6 +433,13 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                           const lang = match[1];
                           const codeKey = `code-${message.id}-${codeString.slice(0, 16)}`;
                           const isCopied = copiedCodeKey === codeKey;
+                          const isDiscordCode =
+                            codeString.includes('discord.js') ||
+                            codeString.includes('Client') ||
+                            codeString.includes('GatewayIntentBits') ||
+                            codeString.includes('SlashCommandBuilder') ||
+                            codeString.includes('discord.py') ||
+                            codeString.includes('discord.ext');
 
                           return (
                             <div className="relative my-3 rounded-xl overflow-hidden border border-zinc-800 bg-[#18181B] text-zinc-100 shadow-sm">
@@ -461,7 +447,52 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                                 <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-300">
                                   {lang}
                                 </span>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  {/* Discord Live Pop-up Trigger */}
+                                  {isDiscordCode && (
+                                    <button
+                                      onClick={() => {
+                                        setActiveBotCode(codeString);
+                                        setIsDiscordLiveChatOpen(true);
+                                      }}
+                                      className="flex items-center gap-1 text-xs text-[#5865F2] hover:text-[#7289DA] transition-colors cursor-pointer font-medium"
+                                      title="Open interactive Discord chat simulator"
+                                    >
+                                      <Bot className="w-3.5 h-3.5" />
+                                      <span>Live Discord Chat</span>
+                                    </button>
+                                  )}
+
+                                  {/* Side Update Button */}
+                                  {isDiscordCode && (
+                                    <button
+                                      id={`update-bot-btn-${codeKey}`}
+                                      onClick={() => handleDirectUpdateBot(codeKey, codeString)}
+                                      disabled={updatingCodeKey === codeKey}
+                                      className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded font-mono font-bold transition-all cursor-pointer ${
+                                        updatedCodeKey === codeKey
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-[#5865F2] hover:bg-[#4752C4] text-white'
+                                      }`}
+                                      title="Hot-reload and update Discord bot script"
+                                    >
+                                      {updatingCodeKey === codeKey ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : updatedCodeKey === codeKey ? (
+                                        <CheckCircle2 className="w-3 h-3" />
+                                      ) : (
+                                        <RefreshCw className="w-3 h-3" />
+                                      )}
+                                      <span>
+                                        {updatingCodeKey === codeKey
+                                          ? 'Updating...'
+                                          : updatedCodeKey === codeKey
+                                          ? 'Bot Updated!'
+                                          : 'Update Bot'}
+                                      </span>
+                                    </button>
+                                  )}
+
                                   <button
                                     onClick={() => handleDownloadCodeZip(codeKey, codeString, lang)}
                                     disabled={zippingCodeKey === codeKey}
@@ -483,7 +514,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                                     ) : (
                                       <>
                                         <Copy className="w-3.5 h-3.5" />
-                                        <span>Copy code</span>
+                                        <span>Copy</span>
                                       </>
                                     )}
                                   </button>
@@ -507,30 +538,6 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                     {content}
                   </ReactMarkdown>
                 </div>
-
-                {/* Smart Action for Ollama Connection helper */}
-                {content.includes('Could Not Connect to Local Ollama') && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
-                    <div className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-600" />
-                      Switch Model Immediately (No local setup required)
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => onSelectModel('andromeda-soul-1')}
-                        className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                      >
-                        🚀 Switch to Andromeda Soul 1 (Frontier Uncapped)
-                      </button>
-                      <button
-                        onClick={() => onSelectModel('gemini-3.6-flash')}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                      >
-                        ⚡ Switch to Google Gemini 3.6 Flash (Free Tier)
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Bottom Action Bar */}
                 <div className="flex items-center justify-between pt-1 text-xs text-[#78716C]">
@@ -566,6 +573,33 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </button>
+
+                    {/* Teach Andromeda Button (Store to Google Cloud) */}
+                    <button
+                      onClick={() => handleTeachAndromeda(message.id, content)}
+                      disabled={teachingMsgId === message.id}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                        taughtSuccessMsgId === message.id
+                          ? 'bg-emerald-500/20 text-emerald-800'
+                          : 'hover:bg-[#F0EEE6] text-[#78716C] hover:text-amber-800'
+                      }`}
+                      title="Teach this insight to Andromeda (Saves to Google Cloud Firestore)"
+                    >
+                      {teachingMsgId === message.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                      ) : taughtSuccessMsgId === message.id ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Brain className="w-3.5 h-3.5 text-amber-600" />
+                      )}
+                      <span>
+                        {teachingMsgId === message.id
+                          ? 'Learning...'
+                          : taughtSuccessMsgId === message.id
+                          ? 'Saved to Cloud!'
+                          : 'Teach Andromeda'}
+                      </span>
+                    </button>
                   </div>
 
                   {/* If the message contains code blocks, show quick project ZIP exporter */}
@@ -599,24 +633,21 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                 </span>
               </div>
 
-              {/* Streaming Thought accordion */}
               {streamingThought && (
-                <div className="thought-container overflow-hidden border border-[#E5E3DB] rounded-xl shadow-2xs">
-                  <div className="px-3.5 py-2 flex items-center gap-2 text-xs font-medium text-[#78716C] bg-[#F7F6F1]">
-                    <Brain className="w-3.5 h-3.5 text-[#D97706] animate-pulse" />
+                <div className="rounded-xl border border-[#E2E0D8] bg-[#F4F2EB]/60 p-3 text-xs font-mono text-[#78716C] leading-relaxed whitespace-pre-wrap animate-pulse">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-700 mb-1">
+                    <Brain className="w-3.5 h-3.5" />
                     <span>Thinking...</span>
                   </div>
-                  <div className="px-4 py-2 text-xs font-mono text-[#57534E] whitespace-pre-wrap leading-relaxed bg-[#FAF9F5]/70 max-h-56 overflow-y-auto">
-                    {streamingThought}
-                  </div>
+                  {streamingThought}
                 </div>
               )}
 
-              {/* Streaming Token Text */}
-              <div className="prose prose-sm max-w-none text-[#1C1917] leading-relaxed">
-                <ReactMarkdown>{streamingMessage}</ReactMarkdown>
-                <span className="inline-block w-1.5 h-4 bg-[#D97706] ml-1 animate-blink align-middle" />
-              </div>
+              {streamingMessage && (
+                <div className="prose prose-sm max-w-none text-[#1C1917] leading-relaxed">
+                  <ReactMarkdown>{streamingMessage}</ReactMarkdown>
+                </div>
+              )}
             </div>
           )}
 
@@ -624,59 +655,45 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
         </div>
       </div>
 
-      {/* Floating Andromeda Input Box */}
-      <div className="p-2.5 sm:p-4 bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5] to-transparent shrink-0">
+      {/* Input Box Area */}
+      <div className="p-4 sm:p-6 bg-[#FAF9F5] border-t border-[#E2E0D8] shrink-0">
         <div className="max-w-3xl mx-auto">
-          <div
-            onClick={() => textareaRef.current?.focus()}
-            className="andromeda-input-pill rounded-2xl p-2.5 sm:p-3 transition-all cursor-text focus-within:ring-2 focus-within:ring-amber-500/20"
-          >
-            {/* Attachment preview chips */}
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2 p-1 border-b border-[#F0EEE6]">
-                {attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F5F3EC] border border-[#E5E3DB] text-xs text-[#292524]"
+          {/* Active Attachments Preview */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#E2E0D8] text-xs text-[#1C1917] shadow-2xs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#D97706]" />
+                  <span className="font-mono text-xs max-w-[150px] truncate">{att.name}</span>
+                  <button
+                    onClick={() => removeAttachment(att.id)}
+                    className="p-0.5 text-[#78716C] hover:text-rose-600 rounded-full transition-colors cursor-pointer"
                   >
-                    {att.previewUrl ? (
-                      <img src={att.previewUrl} alt={att.name} className="w-4 h-4 rounded object-cover" />
-                    ) : (
-                      <FileText className="w-3.5 h-3.5 text-[#78716C]" />
-                    )}
-                    <span className="truncate max-w-[140px] font-medium">{att.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveAttachment(att.id);
-                      }}
-                      className="p-0.5 text-[#78716C] hover:text-rose-600 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-            {/* Input Textarea - always spacious and tap-friendly on mobile */}
+          {/* Unified Input Card */}
+          <div className="rounded-2xl border border-[#D9D6CC] bg-white shadow-xs focus-within:border-[#B5B0A1] focus-within:ring-2 focus-within:ring-[#EAE7DF] transition-all overflow-hidden">
             <textarea
+              id="andromeda-chat-input"
               ref={textareaRef}
-              id="andromeda-chat-textarea"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Message ${currentModel.name} (Gemini, Andromeda, Ollama)...`}
-              rows={2}
-              className="w-full bg-transparent resize-none border-none outline-none text-[15px] sm:text-sm text-[#1C1917] placeholder:text-[#8C887B] placeholder:opacity-100 leading-relaxed min-h-[48px] max-h-48 px-2 py-1 block cursor-text font-sans"
+              placeholder={`Ask ${currentModel.name} anything, code a Discord bot (/discord), or build projects...`}
+              rows={1}
+              className="w-full px-4 pt-3.5 pb-2 text-sm text-[#1C1917] placeholder-[#8C887B] focus:outline-hidden resize-none bg-transparent font-sans leading-relaxed"
             />
 
-            {/* Bottom Controls Bar inside Pill */}
-            <div
-              className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-[#F5F3EC]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Left Actions: Attachments & Thinking Toggle */}
+            {/* Bottom Actions Toolbar inside Card */}
+            <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-[#F2F0E8]">
               <div className="flex items-center gap-1 sm:gap-2">
                 <input
                   type="file"
@@ -697,7 +714,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                   <Paperclip className="w-4 h-4" />
                 </button>
 
-                {/* Extended Thinking Toggle (Claude 3.7 / Gemini Thinking) */}
+                {/* Extended Thinking Toggle */}
                 <button
                   id="toggle-thinking-button"
                   type="button"
@@ -707,7 +724,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
                       ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs'
                       : 'text-[#78716C] hover:bg-[#F2F0E8] hover:text-[#1C1917]'
                   }`}
-                  title="Toggle Extended Thinking (Chain of Thought)"
+                  title="Toggle Extended Thinking"
                 >
                   <Brain className={`w-3.5 h-3.5 ${isThinkingEnabled ? 'text-amber-600' : 'text-[#8C887B]'}`} />
                   <span className="text-xs">
@@ -761,6 +778,28 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Live Discord Chat Modal with Side Update Bot button */}
+      <DiscordLiveChatModal
+        isOpen={isDiscordLiveChatOpen}
+        onClose={() => setIsDiscordLiveChatOpen(false)}
+        botCode={activeBotCode}
+        onUpdateBotCode={async (newCode) => {
+          setActiveBotCode(newCode);
+          return true;
+        }}
+      />
+
+      {/* Learned Knowledge Modal (Google Cloud Server) */}
+      <LearnedKnowledgeModal
+        isOpen={isLearnedKnowledgeOpen}
+        onClose={() => setIsLearnedKnowledgeOpen(false)}
+        knowledgeList={learnedKnowledgeList}
+        currentUser={currentUser}
+        onAddKnowledge={(item) => {
+          setLearnedKnowledgeList((prev) => [item, ...prev]);
+        }}
+      />
     </div>
   );
 };
