@@ -36,7 +36,7 @@ export interface UserProfile {
   name: string;
   avatar?: string;
   avatarUrl?: string;
-  provider: 'google' | 'apple' | 'guest';
+  provider: 'google' | 'apple' | 'guest' | 'anonymous';
   connectedAt?: number;
   signedInAt?: number;
 }
@@ -117,6 +117,8 @@ export interface AIModelOption {
   customBaseUrl?: string;
   customModelTag?: string;
   createdAt?: number;
+  contextLimit?: string;
+  maxTokens?: number;
 }
 
 export type GeminiModel = AIModelOption;

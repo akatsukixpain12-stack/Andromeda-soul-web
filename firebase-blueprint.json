@@ -9,7 +9,7 @@
         "email": { "type": "string", "format": "email", "description": "User email address" },
         "name": { "type": "string", "description": "User display name" },
         "avatar": { "type": "string", "description": "Base64 avatar string or profile picture path" },
-        "provider": { "type": "string", "enum": ["google", "apple", "guest"] },
+        "provider": { "type": "string", "enum": ["google", "apple", "guest", "anonymous"] },
         "signedInAt": { "type": "number", "description": "Epoch timestamp of sign-in" }
       },
       "required": ["id", "email", "name", "provider"]

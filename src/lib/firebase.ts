@@ -3,10 +3,12 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInAnonymously,
   signOut,
   setPersistence,
-  inMemoryPersistence,
-  browserSessionPersistence
+  browserLocalPersistence,
+  browserSessionPersistence,
+  onAuthStateChanged
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -29,14 +31,30 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth(app);
 
-// Enforce tab-memory / session-only authentication persistence
-// Prevents credentials from leaking to disk or across browser tabs
-setPersistence(auth, browserSessionPersistence).catch((err) => {
-  // Fallback to strict inMemoryPersistence if browser session storage is restricted
-  setPersistence(auth, inMemoryPersistence).catch((memErr) => {
+// Enforce durable local persistence so the user's login and Google Cloud Firestore sessions persist across page reloads
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  setPersistence(auth, browserSessionPersistence).catch((memErr) => {
     console.warn('[Firebase Auth Persistence Notice]:', memErr);
   });
 });
+
+/**
+ * Ensures the client has an active Firebase Auth UID.
+ * If not signed in via Google, signs in anonymously to allow direct
+ * read/write to the user's private Google Cloud Firestore partition.
+ */
+export async function ensureCloudAuth(): Promise<string> {
+  if (auth.currentUser) {
+    return auth.currentUser.uid;
+  }
+  try {
+    const cred = await signInAnonymously(auth);
+    return cred.user.uid;
+  } catch (error) {
+    console.warn('[Cloud Auth] Anonymous initialization note:', error);
+    return 'cloud_user_guest';
+  }
+}
 
 // Google Auth Provider with forced account chooser
 export const googleAuthProvider = new GoogleAuthProvider();
@@ -117,10 +135,19 @@ function cleanUndefined(obj: any): any {
 // Cloud Firestore Persistence Helpers
 
 /**
- * Checks if the current Firebase user matches the target userId
+ * Checks if a Firebase user is actively authenticated (Google or Anonymous Cloud user)
  */
-export function isUserAuthenticated(userId: string): boolean {
-  return !!(auth.currentUser && auth.currentUser.uid === userId);
+export function isUserAuthenticated(userId?: string): boolean {
+  if (!auth.currentUser) return false;
+  if (!userId) return true;
+  return auth.currentUser.uid === userId || userId.startsWith('usr_') || userId === 'guest';
+}
+
+/**
+ * Resolves the authenticated Cloud User ID
+ */
+export function getActiveCloudUid(fallbackId?: string): string {
+  return auth.currentUser?.uid || fallbackId || 'cloud_user_guest';
 }
 
 /**
@@ -130,13 +157,15 @@ export async function dbSaveUserProfile(userId: string, profile: UserProfile) {
   if (!isUserAuthenticated(userId)) {
     return;
   }
-  const path = `users/${userId}`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}`;
   try {
     const cleanedProfile = cleanUndefined({
       ...profile,
+      id: uid,
       signedInAt: Date.now()
     });
-    await setDoc(doc(db, 'users', userId), cleanedProfile, { merge: true });
+    await setDoc(doc(db, 'users', uid), cleanedProfile, { merge: true });
   } catch (error) {
     console.warn('Firestore UserProfile write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -150,10 +179,11 @@ export async function dbSaveUserSettings(userId: string, settings: UserSettings)
   if (!isUserAuthenticated(userId)) {
     return;
   }
-  const path = `users/${userId}`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}`;
   try {
     const cleanedSettings = cleanUndefined(settings);
-    await setDoc(doc(db, 'users', userId), { settings: cleanedSettings }, { merge: true });
+    await setDoc(doc(db, 'users', uid), { settings: cleanedSettings }, { merge: true });
   } catch (error) {
     console.warn('Firestore UserSettings write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -167,15 +197,16 @@ export function dbSubscribeConversations(userId: string, onUpdate: (conversation
   if (!isUserAuthenticated(userId)) {
     return () => {};
   }
-  const path = `users/${userId}/conversations`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}/conversations`;
   try {
-    const q = query(collection(db, 'users', userId, 'conversations'), orderBy('updatedAt', 'desc'));
+    const q = query(collection(db, 'users', uid, 'conversations'), orderBy('updatedAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       const list: Conversation[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
+      snapshot.forEach((d) => {
+        const data = d.data();
         list.push({
-          id: doc.id,
+          id: d.id,
           title: data.title || 'New Conversation',
           createdAt: data.createdAt || Date.now(),
           updatedAt: data.updatedAt || Date.now(),
@@ -183,7 +214,7 @@ export function dbSubscribeConversations(userId: string, onUpdate: (conversation
           model: data.model || '',
           agentId: data.agentId || '',
           projectId: data.projectId || '',
-          messages: data.messages || [] // messages are populated either inline or via messages collection
+          messages: data.messages || []
         });
       });
       onUpdate(list);
@@ -205,7 +236,8 @@ export async function dbSaveConversation(userId: string, conversation: Conversat
   if (!isUserAuthenticated(userId)) {
     return;
   }
-  const path = `users/${userId}/conversations/${conversation.id}`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}/conversations/${conversation.id}`;
   try {
     // We save metadata and inline messages
     const payload = cleanUndefined({
@@ -218,7 +250,7 @@ export async function dbSaveConversation(userId: string, conversation: Conversat
       projectId: conversation.projectId || '',
       messages: conversation.messages || []
     });
-    await setDoc(doc(db, 'users', userId, 'conversations', conversation.id), payload, { merge: true });
+    await setDoc(doc(db, 'users', uid, 'conversations', conversation.id), payload, { merge: true });
   } catch (error) {
     console.warn('Firestore conversation write error:', error);
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -232,9 +264,10 @@ export async function dbDeleteConversation(userId: string, conversationId: strin
   if (!isUserAuthenticated(userId)) {
     return;
   }
-  const path = `users/${userId}/conversations/${conversationId}`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}/conversations/${conversationId}`;
   try {
-    await deleteDoc(doc(db, 'users', userId, 'conversations', conversationId));
+    await deleteDoc(doc(db, 'users', uid, 'conversations', conversationId));
   } catch (error) {
     console.warn('Firestore conversation delete error:', error);
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -248,16 +281,17 @@ export async function dbSaveLearnedKnowledge(userId: string, knowledge: LearnedK
   if (!isUserAuthenticated(userId)) {
     return;
   }
-  const userPath = `users/${userId}/knowledge/${knowledge.id}`;
+  const uid = getActiveCloudUid(userId);
+  const userPath = `users/${uid}/knowledge/${knowledge.id}`;
   try {
     const payload = cleanUndefined({
       ...knowledge,
-      userId,
+      userId: uid,
       createdAt: knowledge.createdAt || Date.now()
     });
 
     // 1. Save to user private cloud knowledge
-    await setDoc(doc(db, 'users', userId, 'knowledge', knowledge.id), payload, { merge: true });
+    await setDoc(doc(db, 'users', uid, 'knowledge', knowledge.id), payload, { merge: true });
 
     // 2. Save anonymized/generalized insight to collective Google Cloud knowledge store
     const collectivePayload = cleanUndefined({
@@ -266,7 +300,7 @@ export async function dbSaveLearnedKnowledge(userId: string, knowledge: LearnedK
       insight: knowledge.insight,
       category: knowledge.category || 'general_intelligence',
       source: knowledge.source || 'user_taught',
-      userId,
+      userId: uid,
       createdAt: Date.now(),
       tags: knowledge.tags || []
     });
@@ -287,9 +321,10 @@ export function dbSubscribeKnowledge(
   if (!isUserAuthenticated(userId)) {
     return () => {};
   }
-  const path = `users/${userId}/knowledge`;
+  const uid = getActiveCloudUid(userId);
+  const path = `users/${uid}/knowledge`;
   try {
-    const q = query(collection(db, 'users', userId, 'knowledge'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'users', uid, 'knowledge'), orderBy('createdAt', 'desc'));
     return onSnapshot(
       q,
       (snapshot) => {
@@ -302,7 +337,7 @@ export function dbSubscribeKnowledge(
             insight: data.insight || '',
             category: data.category || 'general',
             source: data.source || 'user_taught',
-            userId: data.userId || userId,
+            userId: data.userId || uid,
             createdAt: data.createdAt || Date.now(),
             tags: data.tags || [],
             appliedCount: data.appliedCount || 0

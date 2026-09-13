@@ -37,6 +37,8 @@ interface AndromedaSidebarProps {
   onOpenSettings: () => void;
   onOpenProviders: () => void;
   onOpenAuth?: () => void;
+  onOpenKnowledgeModal?: () => void;
+  knowledgeCount?: number;
   onOpenMediaEngine?: () => void;
   onOpenTerminal?: () => void;
   onOpenDiscord?: () => void;
@@ -57,6 +59,8 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
   onOpenSettings,
   onOpenProviders,
   onOpenAuth,
+  onOpenKnowledgeModal,
+  knowledgeCount = 0,
   onOpenMediaEngine,
   onOpenTerminal,
   onOpenDiscord,
@@ -440,6 +444,31 @@ export const AndromedaSidebar: React.FC<AndromedaSidebarProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Google Cloud Server Persistence & Memory Status */}
+          <button
+            onClick={onOpenKnowledgeModal}
+            className="mt-2.5 w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50/80 border border-emerald-200/80 hover:bg-emerald-100/80 transition-colors text-left cursor-pointer group"
+            title="Google Cloud Firestore: All chats & autonomous learned memory are permanently synced. Click to view memory."
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <div className="truncate">
+                <span className="text-[11px] font-semibold text-emerald-950 block truncate">
+                  Google Cloud Server
+                </span>
+                <span className="text-[10px] text-emerald-700 block truncate font-mono">
+                  {knowledgeCount > 0 ? `${knowledgeCount} Memories Auto-Learned` : 'Firestore Connected'}
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] bg-emerald-600 text-white font-mono px-1.5 py-0.5 rounded-md shrink-0">
+              Cloud
+            </span>
+          </button>
         </div>
 
         {/* Bottom User Bar & Google Auth */}

@@ -368,7 +368,7 @@ export const AndromedaChatArea: React.FC<AndromedaChatAreaProps> = ({
               <div className="flex flex-wrap items-center justify-center gap-2 max-w-md">
                 {[
                   'Code a Discord bot (/discord)',
-                  'Teach Andromeda new rules',
+                  'Generate image of a futuristic cybernetic city',
                   'Explain quantum computing simply',
                   'Generate a full TypeScript project',
                 ].map((suggestion) => (

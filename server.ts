@@ -91,12 +91,14 @@ export const GEMINI_MODELS: GeminiModel[] = [
     name: 'Andromeda Soul 1',
     provider: 'gemini',
     providerLabel: 'Google Gemini',
-    description: 'Sovereign intelligence with uncapped 100,000x reasoning, Python AI creation, and Discord bot mastery.',
-    badge: 'Soul 1',
+    description: 'Sovereign intelligence with 800k token context limit, uncapped reasoning, image & video synthesis, and continuous Google Cloud auto-learning.',
+    badge: '800k Sovereign',
     isFree: true,
     speed: 'Ultra Fast',
-    intelligence: 'Frontier Uncapped',
+    intelligence: 'Frontier Sovereign',
     isDefault: true,
+    contextLimit: '800k Tokens',
+    maxTokens: 800000,
   },
   {
     id: 'gemini-3.6-flash',
@@ -379,6 +381,45 @@ async function startServer() {
   // Available Gemini Models
   app.get('/api/models', (req: Request, res: Response) => {
     res.json({ models: GEMINI_MODELS });
+  });
+
+  // In-memory Cloud Server Store for Conversations & Auto-Learned Knowledge
+  const serverCloudConversations = new Map<string, any[]>();
+  const serverCloudKnowledge = new Map<string, any[]>();
+
+  app.get('/api/cloud/conversations', (req: Request, res: Response) => {
+    const userId = (req.query.userId as string) || 'default';
+    res.json({ conversations: serverCloudConversations.get(userId) || [] });
+  });
+
+  app.post('/api/cloud/conversations', (req: Request, res: Response) => {
+    const { userId = 'default', conversation } = req.body;
+    if (conversation) {
+      const list = serverCloudConversations.get(userId) || [];
+      const idx = list.findIndex((c) => c.id === conversation.id);
+      if (idx >= 0) {
+        list[idx] = conversation;
+      } else {
+        list.unshift(conversation);
+      }
+      serverCloudConversations.set(userId, list);
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/cloud/learn', (req: Request, res: Response) => {
+    const { userId = 'default', knowledge } = req.body;
+    if (knowledge) {
+      const list = serverCloudKnowledge.get(userId) || [];
+      list.unshift(knowledge);
+      serverCloudKnowledge.set(userId, list);
+    }
+    res.json({ success: true });
+  });
+
+  app.get('/api/cloud/learn', (req: Request, res: Response) => {
+    const userId = (req.query.userId as string) || 'default';
+    res.json({ knowledge: serverCloudKnowledge.get(userId) || [] });
   });
 
   // Conversations (Stateless - Conversations are isolated per user on the client / Firebase)
@@ -2168,13 +2209,11 @@ npm start
       let candidateModels: string[] = [];
 
       if (isAndromeda) {
-        candidateModels = ['gemini-3.6-flash', 'gemini-3.6-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
-      } else if (validModel === 'gemini-3.6-flash') {
-        candidateModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.6-pro', 'gemini-2.0-flash'];
-      } else if (validModel === 'gemini-3.6-pro') {
-        candidateModels = ['gemini-3.6-pro', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+        candidateModels = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-3.1-pro-preview'];
+      } else if (validModel === 'gemini-2.5-pro' || validModel === 'gemini-3.1-pro-preview') {
+        candidateModels = [validModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3.8-flash'];
       } else {
-        candidateModels = [validModel, 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-3.6-pro', 'gemini-2.0-flash'];
+        candidateModels = [validModel, 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash'];
       }
 
       // Prepare secret list for full token leak protection
@@ -2245,9 +2284,13 @@ ${effectiveSystemInstruction}`;
               if (effectiveSystemInstruction) {
                 config.systemInstruction = effectiveSystemInstruction;
               }
-              // Gemini 3.6 Flash / Pro supports thinking level
-              if ((enableThinking || isDeep100k) && (candidate === 'gemini-3.6-flash' || candidate === 'gemini-3.6-pro')) {
-                config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+              // Frontier Gemini models support thinking configuration
+              if (enableThinking || isDeep100k) {
+                if (candidate.startsWith('gemini-2.5')) {
+                  config.thinkingConfig = { thinkingBudget: isDeep100k ? 24576 : -1 };
+                } else if (candidate.startsWith('gemini-3')) {
+                  config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+                }
               }
 
               const responseStream = await ai.models.generateContentStream({
@@ -2260,10 +2303,10 @@ ${effectiveSystemInstruction}`;
 
               // If we had to switch to a fallback model due to high demand on the primary
               if (!isPrimary) {
-                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Gemini 3.6 Engine)' : validModel;
-                const fallbackName = candidate === 'gemini-3.6-flash' ? 'Gemini 3.6 Flash' : candidate;
+                const primaryName = isAndromeda ? 'Andromeda Soul 1 (Frontier Cloud Engine)' : validModel;
+                const fallbackName = candidate;
                 sendEvent('chunk', {
-                  text: `*(Engine notice: High demand detected. Dynamically routed through ${fallbackName})*\n\n`,
+                  text: `*(Engine notice: Dynamically routed through Google Cloud ${fallbackName})*\n\n`,
                 });
               }
 

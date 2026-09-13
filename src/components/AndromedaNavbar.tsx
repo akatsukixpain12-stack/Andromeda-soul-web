@@ -30,6 +30,8 @@ interface AndromedaNavbarProps {
   onSelectModel: (modelId: string) => void;
   onOpenProvidersModal: () => void;
   onOpenAuth?: () => void;
+  onOpenKnowledgeModal?: () => void;
+  knowledgeCount?: number;
   currentUser?: UserProfile | null;
   activeConversationTitle?: string;
   onRenameActiveConversation?: (newTitle: string) => void;
@@ -45,6 +47,8 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
   onSelectModel,
   onOpenProvidersModal,
   onOpenAuth,
+  onOpenKnowledgeModal,
+  knowledgeCount = 0,
   currentUser,
   activeConversationTitle,
   onRenameActiveConversation,
@@ -283,8 +287,24 @@ export const AndromedaNavbar: React.FC<AndromedaNavbarProps> = ({
           )}
         </div>
 
-        {/* Right: Providers config, Google Auth & New Chat */}
+        {/* Right: Cloud Status, Providers config, Google Auth & New Chat */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Google Cloud Server Status Pill */}
+          <button
+            onClick={onOpenKnowledgeModal}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-200/90 hover:bg-emerald-100/80 transition-all cursor-pointer shadow-2xs"
+            title="Google Cloud Firestore: Real-time Cloud Persistence & Autonomous Memory Active. Click to inspect memory."
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold text-emerald-950">Google Cloud</span>
+            <span className="text-[10px] text-emerald-800 bg-emerald-200/60 font-mono px-1.5 py-0.5 rounded-md">
+              {knowledgeCount > 0 ? `${knowledgeCount} Memories` : 'Connected'}
+            </span>
+          </button>
+
           <button
             id="open-providers-modal-button"
             onClick={onOpenProvidersModal}

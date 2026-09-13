@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { ChatMessage, ChatAttachment, UserSettings, AIModelOption } from '../types';
+import { ChatMessage, ChatAttachment, UserSettings, AIModelOption, LearnedKnowledge } from '../types';
 import { findModelById } from '../data/models';
 import {
   understandRequest,
@@ -17,6 +17,7 @@ export interface StreamChatParams {
   enableThinking: boolean;
   attachments?: ChatAttachment[];
   settings: UserSettings;
+  learnedKnowledge?: LearnedKnowledge[];
   onToken: (token: string) => void;
   onThought?: (thought: string) => void;
   signal?: AbortSignal;
@@ -35,6 +36,7 @@ export async function streamMultiProviderChat({
   enableThinking,
   attachments = [],
   settings,
+  learnedKnowledge = [],
   onToken,
   onThought,
   signal,
@@ -57,7 +59,7 @@ export async function streamMultiProviderChat({
     }
   }
 
-  // 3. Build orchestrated context
+  // 3. Build orchestrated context (injecting learned knowledge from Google Cloud Firestore)
   const orchestrated = buildOrchestratedContext({
     userMessage: prompt,
     history,
@@ -66,6 +68,7 @@ export async function streamMultiProviderChat({
     modelMeta,
     toolResults,
     plan,
+    learnedKnowledge,
   });
 
   let rawResponse = '';
