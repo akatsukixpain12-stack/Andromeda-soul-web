@@ -61,7 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       let convs: any[] = [];
       try {
-        const saved = localStorage.getItem('andromeda_guest_conversations_v4');
+        const saved = sessionStorage.getItem('andromeda_session_conversations_v5');
         if (saved) convs = JSON.parse(saved);
       } catch {
         convs = [];
