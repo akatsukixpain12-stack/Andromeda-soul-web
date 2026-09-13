@@ -294,7 +294,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Custom AI Instructions
                 </label>
                 <p className="text-[11px] text-slate-500 mb-2">
-                  Permanent directives injected into Andromeda Soul 1 alongside its core capabilities.
+                  Permanent directives injected into Andromeda Soul 1.0 alongside its core capabilities.
                 </p>
                 <textarea
                   id="system-instruction-input"

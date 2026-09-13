@@ -17,9 +17,10 @@ import {
   dbDeleteConversation,
   dbSubscribeConversations,
   dbSaveUserProfile,
-  dbSaveUserSettings
+  dbSaveUserSettings,
+  dbLoadUserSettings
 } from './lib/firebase';
-import { inMemoryPersistence, onAuthStateChanged, setPersistence, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const STORAGE_KEY_CONVERSATIONS = 'andromeda_session_conversations_v5';
 const STORAGE_KEY_SETTINGS = 'andromeda_session_settings_v5';
@@ -47,6 +48,7 @@ export function App() {
   // User Profile / Firebase Auth State (Strictly client-isolated)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [cloudSettingsReady, setCloudSettingsReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Conversations State
@@ -100,56 +102,55 @@ export function App() {
   }, [conversations, currentUser]);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
-    } catch (e) {
-      console.warn('Failed to persist session settings:', e);
+    if (!currentUser || currentUser.provider === 'guest') {
+      try {
+        sessionStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+      } catch (e) {
+        console.warn('Failed to persist session settings:', e);
+      }
     }
-  }, [settings]);
+  }, [settings, currentUser]);
 
-  // Do not let Firebase restore an account from a previous browser session.
+  // Preserve Firebase's durable Google auth session; guest data remains session-only.
   useEffect(() => {
     let unsubscribe = () => {};
     let cancelled = false;
 
-    setPersistence(auth, inMemoryPersistence)
-      .then(() => {
-        if (cancelled) return;
-        // Clear any account restored by an older persistent-auth version.
-        return signOut(auth);
-      })
-      .then(() => {
-        if (cancelled) return;
-        unsubscribe = onAuthStateChanged(auth, (user) => {
-          setIsAuthReady(true);
-          const fresh = createDefaultConversation();
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (cancelled) return;
+      const fresh = createDefaultConversation();
 
-          if (user) {
-            const profile: UserProfile = {
-              id: user.uid,
-              email: user.email || '',
-              name: user.displayName || 'Andromeda Creator',
-              avatar: user.photoURL || '',
-              provider: 'google',
-              signedInAt: Date.now(),
-            };
-            // Never show anonymous/session chats while the account is loading.
-            setConversations([fresh]);
-            setActiveConversationId(fresh.id);
-            setCurrentUser(profile);
-            dbSaveUserProfile(user.uid, profile);
-          } else {
-            // Explicitly signed out or new guest visitor.
-            setCurrentUser(null);
-            setConversations([fresh]);
-            setActiveConversationId(fresh.id);
-          }
+      if (user && !user.isAnonymous) {
+        setCloudSettingsReady(false);
+        const profile: UserProfile = {
+          id: user.uid,
+          email: user.email || '',
+          name: user.displayName || 'Andromeda Creator',
+          avatar: user.photoURL || '',
+          provider: 'google',
+          signedInAt: Date.now(),
+        };
+        setConversations([fresh]);
+        setActiveConversationId(fresh.id);
+        setCurrentUser(profile);
+        dbSaveUserProfile(user.uid, profile);
+        dbLoadUserSettings(user.uid).then((savedSettings) => {
+          if (cancelled) return;
+          if (savedSettings) setSettings((previous) => ({ ...previous, ...savedSettings }));
+          setCloudSettingsReady(true);
         });
-      })
-      .catch((error) => {
-        console.error('Unable to initialize private auth session:', error);
-        setIsAuthReady(true);
-      });
+      } else {
+        setCurrentUser(null);
+        setConversations([fresh]);
+        setActiveConversationId(fresh.id);
+        setCloudSettingsReady(true);
+      }
+      setIsAuthReady(true);
+    }, (error) => {
+      console.error('Unable to initialize private auth session:', error);
+      setCloudSettingsReady(true);
+      setIsAuthReady(true);
+    });
 
     return () => {
       cancelled = true;
@@ -205,10 +206,10 @@ export function App() {
 
   // Sync settings to Firestore for signed in users
   useEffect(() => {
-    if (isAuthReady && currentUser && currentUser.provider === 'google' && auth.currentUser && auth.currentUser.uid === currentUser.id) {
+    if (isAuthReady && cloudSettingsReady && currentUser && currentUser.provider === 'google' && auth.currentUser && auth.currentUser.uid === currentUser.id) {
       dbSaveUserSettings(currentUser.id, settings);
     }
-  }, [settings, currentUser, isAuthReady]);
+  }, [settings, currentUser, isAuthReady, cloudSettingsReady]);
 
   // URL callback parameter cleanup
   useEffect(() => {

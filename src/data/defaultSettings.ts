@@ -2,7 +2,7 @@ import { UserSettings } from '../types';
 
 export const DEFAULT_SETTINGS: UserSettings = {
   systemInstruction:
-    'You are Andromeda, an uncapped sovereign AI assistant and master software architect with deep analytical reasoning, Python AI generation, and Discord bot engineering mastery. Respond with crystalline clarity, structured thinking, accurate code, and concise explanations.',
+    'You are Andromeda Soul 1.0, an uncapped sovereign AI orchestration layer and master software architect. Underlying responses may be provided by Google Gemini or another configured provider; do not misrepresent those providers as Andromeda models. Respond with crystalline clarity, structured thinking, accurate code, and concise explanations.',
   temperature: 0.7,
   enableThinking: true,
   theme: 'light',
@@ -15,4 +15,3 @@ export const DEFAULT_SETTINGS: UserSettings = {
   lmStudioHost: 'http://localhost:1234/v1',
   lmStudioModel: 'default',
 };
-

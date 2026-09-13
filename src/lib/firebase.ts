@@ -2,13 +2,9 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
-  signInAnonymously,
-  signOut,
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
-  onAuthStateChanged
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -47,13 +43,7 @@ export async function ensureCloudAuth(): Promise<string> {
   if (auth.currentUser) {
     return auth.currentUser.uid;
   }
-  try {
-    const cred = await signInAnonymously(auth);
-    return cred.user.uid;
-  } catch (error) {
-    console.warn('[Cloud Auth] Anonymous initialization note:', error);
-    return 'cloud_user_guest';
-  }
+  throw new Error('A signed-in Google account is required for cloud persistence.');
 }
 
 // Google Auth Provider with forced account chooser
@@ -135,19 +125,53 @@ function cleanUndefined(obj: any): any {
 // Cloud Firestore Persistence Helpers
 
 /**
- * Checks if a Firebase user is actively authenticated (Google or Anonymous Cloud user)
+ * Checks if a real signed-in Firebase user owns the requested cloud data.
  */
 export function isUserAuthenticated(userId?: string): boolean {
-  if (!auth.currentUser) return false;
+  if (!auth.currentUser || auth.currentUser.isAnonymous) return false;
   if (!userId) return true;
-  return auth.currentUser.uid === userId || userId.startsWith('usr_') || userId === 'guest';
+  return auth.currentUser.uid === userId;
 }
 
 /**
  * Resolves the authenticated Cloud User ID
  */
 export function getActiveCloudUid(fallbackId?: string): string {
-  return auth.currentUser?.uid || fallbackId || 'cloud_user_guest';
+  return auth.currentUser?.uid || fallbackId || '';
+}
+
+const SECRET_SETTING_KEYS: Array<keyof UserSettings> = [
+  'geminiApiKey',
+  'openaiApiKey',
+  'anthropicApiKey',
+  'deepseekApiKey',
+  'mistralApiKey',
+  'groqApiKey',
+  'openRouterApiKey',
+  'customApiKey',
+];
+
+function getCloudSafeSettings(settings: UserSettings): Partial<UserSettings> {
+  const safeSettings = { ...settings } as Partial<UserSettings> & Record<string, unknown>;
+  for (const key of SECRET_SETTING_KEYS) {
+    delete safeSettings[key];
+  }
+  if (safeSettings.customModels) {
+    safeSettings.customModels = safeSettings.customModels.map(({ customApiKey, ...model }) => model);
+  }
+  return safeSettings;
+}
+
+export async function dbLoadUserSettings(userId: string): Promise<Partial<UserSettings> | null> {
+  if (!isUserAuthenticated(userId)) return null;
+  const uid = getActiveCloudUid(userId);
+  try {
+    const snapshot = await getDoc(doc(db, 'users', uid));
+    return snapshot.exists() ? (snapshot.data().settings as Partial<UserSettings> || null) : null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+    return null;
+  }
 }
 
 /**
@@ -182,7 +206,7 @@ export async function dbSaveUserSettings(userId: string, settings: UserSettings)
   const uid = getActiveCloudUid(userId);
   const path = `users/${uid}`;
   try {
-    const cleanedSettings = cleanUndefined(settings);
+    const cleanedSettings = cleanUndefined(getCloudSafeSettings(settings));
     await setDoc(doc(db, 'users', uid), { settings: cleanedSettings }, { merge: true });
   } catch (error) {
     console.warn('Firestore UserSettings write error:', error);
@@ -394,5 +418,3 @@ export function dbSubscribeCollectiveKnowledge(
     return () => {};
   }
 }
-
-

@@ -18,7 +18,7 @@ const WebSocket = require('ws');
 const pty = require('node-pty');
 
 const PORT = process.env.PORT || 8080;
-const AUTH_TOKEN = process.env.AUTH_TOKEN || null; // set this in production!
+const AUTH_TOKEN = process.env.AUTH_TOKEN || null;
 const SHELL_CMD = process.env.SHELL_CMD || (process.platform === 'win32' ? 'cmd.exe' : 'bash');
 
 const server = http.createServer((req, res) => {
@@ -33,9 +33,15 @@ const MAX_CONCURRENT_SESSIONS = 20;
 let activeSessions = 0;
 
 wss.on('connection', (ws, req) => {
+  if (!AUTH_TOKEN) {
+    ws.send(JSON.stringify({ type: 'error', data: 'Terminal authentication is not configured.\r\n' }));
+    ws.close();
+    return;
+  }
+
   // ---- Auth check ----
   // Client must send: { type: "auth", token: "..." } as the FIRST message.
-  let authenticated = AUTH_TOKEN ? false : true;
+  let authenticated = false;
   let ptyProcess = null;
 
   if (activeSessions >= MAX_CONCURRENT_SESSIONS) {
@@ -114,6 +120,6 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, () => {
   console.log(`web-terminal backend listening on :${PORT}`);
   if (!AUTH_TOKEN) {
-    console.warn('WARNING: AUTH_TOKEN not set — anyone who finds this server can open a real shell on it.');
+    console.error('ERROR: AUTH_TOKEN not set — terminal connections are disabled until authentication is configured.');
   }
 });
